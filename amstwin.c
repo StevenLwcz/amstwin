@@ -53,8 +53,8 @@ void init_window()
 void end_window()
 {
     int num = write(STDOUT_FILENO, show_cursor, 6);
+    num = write(STDOUT_FILENO, reset_colours, 6);
     num = write(STDOUT_FILENO, exit_alt_screen, 8);
- //   num = write(STDOUT_FILENO, reset_colours, 6);
 }
 
 /* CSI row; column H */

@@ -11,7 +11,8 @@
 #define show_cursor "\x1b[?25h"
 #define reset_colours "\x1b]104\x07"
 
-struct amstwin {
+struct amstwin 
+{
     int left;
     int right;
     int top;
@@ -30,14 +31,73 @@ static char seqbuf[MAX_SEQBUF];
 static int curx = -1;
 static int cury = -1;
 
-struct amstwin window[8] = {1,80,1,50,1,0,
-                            1,80,1,50,1,0,
-                            1,80,1,50,1,0,
-                            1,80,1,50,1,0,
-                            1,80,1,50,1,0,
-                            1,80,1,50,1,0,
-                            1,80,1,50,1,0,
-                            1,80,1,50,1,0};
+#define MAX_WINDOWS 8
+
+static struct amstwin window[MAX_WINDOWS] = {1,80,1,50,1,0,
+                                             1,80,1,50,1,0,
+                                             1,80,1,50,1,0,
+                                             1,80,1,50,1,0,
+                                             1,80,1,50,1,0,
+                                             1,80,1,50,1,0,
+                                             1,80,1,50,1,0,
+                                             1,80,1,50,1,0};
+
+struct basic_colours 
+{
+    int no;
+    int red;
+    int green;
+    int blue;
+    char name[15];
+};
+
+#define MAX_PALETTE 27
+static struct basic_colours colour_palette[MAX_PALETTE] =
+{
+        0,    0,    0,    0, "black",
+        1,    0,    0,  128, "blue",
+        2,    0,    0,  255, "bright blue",
+        3,  128,    0,    0, "red",
+        4,  128,    0,  128, "magenta",
+        5,  128,    0,  255, "Mauve",
+        6,  255,    0,    0, "bright red",
+        7,  255,    0,  128, "purple",
+        8,  255,    0,  255, "bright magenta",
+        9,    0,  128,    0, "green",
+       10,    0,  128,  128, "cyan",
+       11,    0,  128,  255, "sky blue",
+       12,  128,  128,    0, "yellow",
+       13,  128,  128,  128, "white",
+       14,  128,  128,  255, "pastel blue",
+       15,  255,  128,    0, "orange",
+       16,  255,  128,  128, "pink",
+       17,  255,  128,  255, "pastel magenta",
+       18,    0,  255,    0, "bright green",
+       19,    0,  255,  128, "sea green",
+       20,    0,  255,  255, "bright cyan",
+       21,  128,  255,    0, "lime",
+       22,  128,  255,  128, "pastel green",
+       23,  128,  255,  255, "pastel cyan",
+       24,  255,  255,    0, "bright yellow",
+       25,  255,  255,  128, "pastel yellow",
+       26,  255,  255,  255, "bright white"
+};
+
+
+/* \x1b]4; colour ;rgb:FF/FF/FF\x1b\
+ */
+void init_colour(int c, int r, int g, int b)
+{
+   int len = sprintf(seqbuf, "\x1b]4;%d;rgb:%02X/%02X/%02X\x1b\\", c, r, g, b, MAX_SEQBUF);
+   write(STDOUT_FILENO, seqbuf, len);
+}
+
+/* Initialise the 1st 27 colours to the Amstrad BASIC scheme */
+void init_colours()
+{
+    for (int c=0;c<MAX_PALETTE;c++)
+        init_colour(c, colour_palette[c].red, colour_palette[c].green, colour_palette[c].blue);
+}
 
 /* TO DO get screen size
  * set up signal handler for interupt
@@ -48,6 +108,7 @@ void init_window()
     int num = write(STDOUT_FILENO, enter_alt_screen, 8);
     num = write(STDOUT_FILENO, clear_screen, 4);
     // num = write(STDOUT_FILENO, hide_cursor, 6);
+    init_colours();
 }
 
 void end_window()
@@ -136,13 +197,6 @@ void paper(int stream, int p)
    window[stream].paper = p;
 }
 
-/* \x1b]4; colour ;rgb:FF/FF/FF\x1b\
- */
-void init_colour(int c, int r, int g, int b)
-{
-   int len = sprintf(seqbuf, "\x1b]4;%d;rgb:%02X/%02X/%02X\x1b\\", c, r, g, b, MAX_SEQBUF);
-   write(STDOUT_FILENO, seqbuf, len);
-}
 
 int main()
 {
@@ -221,5 +275,4 @@ int test1()
 
     sleep(40);
     end_window();
-
 }

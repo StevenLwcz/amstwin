@@ -9,7 +9,8 @@
 #define exit_alt_screen "\x1b[?1049l"
 #define hide_cursor "\x1b[?25l"
 #define show_cursor "\x1b[?25h"
-#define reset_colours "\x1b]104\x07"
+// #define reset_colours "\x1b]104\x07"
+#define clear_screen "\x1b[2J"
 
 struct amstwin 
 {
@@ -89,6 +90,13 @@ static struct basic_colours colour_palette[MAX_PALETTE] =
 static const int inks[MAX_COLOUR] = { 1, 24, 20,  6, 26,  0,  2,  8, 
                             10, 12, 14, 16, 18, 22, 17, 11};
 
+void cls(int stream)
+{
+   int len = sprintf(seqbuf, "\x1b[48;5;%dm", window[stream].paper);
+   write(STDOUT_FILENO, seqbuf, len);
+   write(STDOUT_FILENO, clear_screen, 4);
+}
+
 /* \x1b]4; colour ;rgb:FF/FF/FF\x1b\
  */
 void init_colour(int c, int r, int g, int b)
@@ -117,12 +125,13 @@ void init_window()
     num = write(STDOUT_FILENO, clear_screen, 4);
     // num = write(STDOUT_FILENO, hide_cursor, 6);
     init_colours();
+    cls(0);
 }
 
 void end_window()
 {
     int num = write(STDOUT_FILENO, show_cursor, 6);
-    num = write(STDOUT_FILENO, reset_colours, 6);
+    // num = write(STDOUT_FILENO, reset_colours, 6);
     num = write(STDOUT_FILENO, exit_alt_screen, 8);
 }
 
@@ -232,6 +241,8 @@ int main()
     init_window();
 
     new_window(1, 10, 26, 10, 26);
+    paper(1,3);
+    cls(1);
     locate_stream(1,1,1);
 
     for (int p = 0; p < MAX_COLOUR; p++)
@@ -247,7 +258,7 @@ int main()
     {
         ink(i, i+11);
     }
-    sleep(20);
+    sleep(10);
     end_window();
 
 

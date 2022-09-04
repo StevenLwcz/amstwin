@@ -84,6 +84,11 @@ static struct basic_colours colour_palette[MAX_PALETTE] =
 };
 
 
+/* default palette colours for 0-15 */
+#define MAX_COLOUR 16
+static const int inks[MAX_COLOUR] = { 1, 24, 20,  6, 26,  0,  2,  8, 
+                            10, 12, 14, 16, 18, 22, 17, 11};
+
 /* \x1b]4; colour ;rgb:FF/FF/FF\x1b\
  */
 void init_colour(int c, int r, int g, int b)
@@ -92,11 +97,14 @@ void init_colour(int c, int r, int g, int b)
    write(STDOUT_FILENO, seqbuf, len);
 }
 
-/* Initialise the 1st 27 colours to the Amstrad BASIC scheme */
+/* Initialise the 1st 16 colours to the Amstrad BASIC scheme */
 void init_colours()
 {
-    for (int c=0;c<MAX_PALETTE;c++)
-        init_colour(c, colour_palette[c].red, colour_palette[c].green, colour_palette[c].blue);
+    for (int i=0;i<MAX_COLOUR;i++)
+    {
+        int c = inks[i];
+        init_colour(i, colour_palette[c].red, colour_palette[c].green, colour_palette[c].blue);
+    }
 }
 
 /* TO DO get screen size
@@ -134,12 +142,14 @@ void locate_stream(int s, int x, int y)
     locate(x, y);
 }
 
-
 /* if text is longer than width it is wrapped round
  * if last line is bottom then window scrolls up (colours kept)
  * ; no line feed
  * , tab
  * Windows overlap and share same screen
+ *
+ * CSI 38;5; foreground colour m  256 colour
+ * CSI 48;5; background colour m  256 colour
  */
 void print_stream(int stream, char *buf)
 {
@@ -181,24 +191,68 @@ void print_window(int window)
 
 }
 
-/* for now we will use the number direct 
- * CSI 38;5; colour m  256 colour
- */
 void pen(int stream, int p)
 {
-   window[stream].pen = p;
+   if (p >= 0 && p < MAX_COLOUR)
+       window[stream].pen = p;
+   else
+       printf("Error pen out of range %d\n", p);
+       /* TODO improve error handling */
 }
 
-/* for now we will use the number direct 
- * CSI 48;5; colour m  256 colour
- */
 void paper(int stream, int p)
 {
-   window[stream].paper = p;
+   if (p >= 0 && p < MAX_COLOUR)
+       window[stream].paper = p;
+   else
+       printf("Error paper out of range %d\n", p);
+       /* TODO improve error handling */
 }
 
+       /* TODO improve error handling */
+void ink(int i, int colour)
+{
+    if (i >= 0 && i < MAX_COLOUR)
+    {
+        if (colour >= 0 && colour < MAX_PALETTE)
+        {
+            init_colour(i, colour_palette[colour].red, colour_palette[colour].green, colour_palette[colour].blue); 
+        }
+        else
+            printf("Error ink colour out of range $d\n", colour);
+    }
+    else
+        printf("Error ink number out of range $d\n", i);
+
+}
 
 int main()
+{
+    char buffer[MAX_SEQBUF];
+    init_window();
+
+    new_window(1, 10, 26, 10, 26);
+    locate_stream(1,1,1);
+
+    for (int p = 0; p < MAX_COLOUR; p++)
+    {
+       pen(1, p);
+       int len = sprintf(buffer, "%4d", p, MAX_SEQBUF);
+       print_stream(1, buffer);
+
+    }
+    sleep(5);
+    ink(0, 0);
+    for (int i = 2; i < MAX_COLOUR; i++)
+    {
+        ink(i, i+11);
+    }
+    sleep(20);
+    end_window();
+
+
+}
+int test2()
 {
 
     char buffer[MAX_SEQBUF];
@@ -211,20 +265,15 @@ int main()
         locate_stream(1, 1, y);
         for (int x=0; x<16; x++)
         {
+           pen(1, x);
+           paper(1, y);
            int p = x + y * 16;
-           pen(1, p);
-           paper(1, 255 - p);
            int len = sprintf(buffer, "%4d", p, MAX_SEQBUF);
            print_stream(1, buffer);
         }
     }
-    sleep(5);
 
-    for (int c=0; c<256; c++)
-    {
-        init_colour(c, 0, 0, 0);
-    }
-    sleep(5);
+    sleep(20);
     end_window();
 
 }

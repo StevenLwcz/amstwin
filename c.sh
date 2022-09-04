@@ -1,1 +1,1 @@
-gcc -o amstwin amstwin.c
+gcc -g -o amstwin amstwin.c

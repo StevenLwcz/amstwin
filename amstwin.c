@@ -26,14 +26,14 @@ struct amstwin
 
 static int curpen = -1;
 static int curpaper = -1;
-#define MAX_SEQBUF 30
-static char seqbuf[MAX_SEQBUF];
 
 static int curx = -1;
 static int cury = -1;
 
-#define MAX_WINDOWS 8
+#define MAX_SEQBUF 30
+static char seqbuf[MAX_SEQBUF];
 
+#define MAX_WINDOWS 8
 static struct amstwin window[MAX_WINDOWS] = {1,80,1,50,1,0,
                                              1,80,1,50,1,0,
                                              1,80,1,50,1,0,
@@ -84,7 +84,6 @@ static struct basic_colours colour_palette[MAX_PALETTE] =
        26,  255,  255,  255, "bright white"
 };
 
-
 /* default palette colours for 0-15 */
 #define MAX_COLOUR 16
 static const int inks[MAX_COLOUR] = { 1, 24, 20,  6, 26,  0,  2,  8, 
@@ -92,21 +91,20 @@ static const int inks[MAX_COLOUR] = { 1, 24, 20,  6, 26,  0,  2,  8,
 
 void cls(int stream)
 {
-   int len = sprintf(seqbuf, "\x1b[48;5;%dm", window[stream].paper);
+   int len = sprintf(seqbuf, "\x1b[48;5;%dm%s", window[stream].paper, clear_screen);
    write(STDOUT_FILENO, seqbuf, len);
-   write(STDOUT_FILENO, clear_screen, 4);
 }
 
 /* \x1b]4; colour ;rgb:FF/FF/FF\x1b\
  */
-void init_colour(int c, int r, int g, int b)
+static void init_colour(int c, int r, int g, int b)
 {
    int len = sprintf(seqbuf, "\x1b]4;%d;rgb:%02X/%02X/%02X\x1b\\", c, r, g, b, MAX_SEQBUF);
    write(STDOUT_FILENO, seqbuf, len);
 }
 
 /* Initialise the 1st 16 colours to the Amstrad BASIC scheme */
-void init_colours()
+static void init_colours()
 {
     for (int i=0;i<MAX_COLOUR;i++)
     {
@@ -190,12 +188,12 @@ void new_window(int stream, int left, int right, int top, int bottom)
     window[stream].bottom = bottom;
 }
 
-void scroll_window()
+static void scroll_window()
 {
 
 }
 
-void print_window(int window)
+static void print_window(int window)
 {
 
 }

@@ -1,6 +1,8 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
+#include <signal.h>
 
 #define clear_screen "\x1b[2J"
 // #define move_up_n "\x1b[10A"
@@ -89,6 +91,21 @@ static struct basic_colours colour_palette[MAX_PALETTE] =
 static const int inks[MAX_COLOUR] = { 1, 24, 20,  6, 26,  0,  2,  8, 
                             10, 12, 14, 16, 18, 22, 17, 11};
 
+
+
+void end_window()
+{
+    int num = write(STDOUT_FILENO, show_cursor, 6);
+    // num = write(STDOUT_FILENO, reset_colours, 6);
+    num = write(STDOUT_FILENO, exit_alt_screen, 8);
+}
+
+void end_amstwin(int sig)
+{
+    end_window();
+    exit(0);
+}
+
 void cls(int stream)
 {
    int len = sprintf(seqbuf, "\x1b[48;5;%dm%s", window[stream].paper, clear_screen);
@@ -119,6 +136,8 @@ static void init_colours()
  */
 void init_window()
 {
+    signal(SIGINT, end_amstwin);
+
     int num = write(STDOUT_FILENO, enter_alt_screen, 8);
     num = write(STDOUT_FILENO, clear_screen, 4);
     // num = write(STDOUT_FILENO, hide_cursor, 6);
@@ -126,12 +145,6 @@ void init_window()
     cls(0);
 }
 
-void end_window()
-{
-    int num = write(STDOUT_FILENO, show_cursor, 6);
-    // num = write(STDOUT_FILENO, reset_colours, 6);
-    num = write(STDOUT_FILENO, exit_alt_screen, 8);
-}
 
 /* CSI row; column H */
 /* BASIC locate command is 1,1 based */
@@ -239,13 +252,13 @@ int main()
     init_window();
 
     new_window(1, 10, 26, 10, 26);
-    paper(1,3);
+    pen(1,3);
     cls(1);
     locate_stream(1,1,1);
 
     for (int p = 0; p < MAX_COLOUR; p++)
     {
-       pen(1, p);
+       paper(1, p);
        int len = sprintf(buffer, "%4d", p, MAX_SEQBUF);
        print_stream(1, buffer);
 

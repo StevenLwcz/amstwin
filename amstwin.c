@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <sys/ioctl.h>
 
 #define clear_screen "\x1b[2J"
 // #define move_up_n "\x1b[10A"
@@ -92,6 +93,8 @@ static const int inks[MAX_COLOUR] = { 1, 24, 20,  6, 26,  0,  2,  8,
                             10, 12, 14, 16, 18, 22, 17, 11};
 
 
+static struct winsize ws;
+static char *screen = NULL;
 
 static void reset_colour()
 {
@@ -135,13 +138,17 @@ static void init_colours()
     }
 }
 
-/* TO DO get screen size
+/* 
  * do I need one for screen resize
  */
 void init_window()
 {
     signal(SIGINT, end_amstwin);
     signal(SIGTERM, end_amstwin);
+
+    ioctl(STDIN_FILENO, TIOCGWINSZ, &ws);
+
+    screen = malloc(ws.ws_row * ws.ws_col);
 
     int num = write(STDOUT_FILENO, enter_alt_screen, 8);
     num = write(STDOUT_FILENO, clear_screen, 4);
@@ -155,9 +162,14 @@ void init_window()
 /* BASIC locate command is 1,1 based */
 void locate(int x, int y)
 {
-   // TODO optimise when x or y is the same especially x
-   int len = sprintf(seqbuf, "\x1b[%d;%dH", --y, --x, MAX_SEQBUF);
-   write(STDOUT_FILENO, seqbuf, len);
+   if (curx != --x && cury != --y)
+   {
+       int len = sprintf(seqbuf, "\x1b[%d;%dH", y, x, MAX_SEQBUF);
+       write(STDOUT_FILENO, seqbuf, len);
+       curx = x; cury = y;
+   }
+   else
+       printf("OPT\n");
 }
 
 void locate_stream(int s, int x, int y)
@@ -190,7 +202,10 @@ void print_stream(int stream, char *buf)
        int len = sprintf(seqbuf, "\x1b[48;5;%dm", curpaper, MAX_SEQBUF);
        write(STDOUT_FILENO, seqbuf, len);
    }
-    write(STDOUT_FILENO, buf, strlen(buf));
+   int len = strlen(buf);
+   write(STDOUT_FILENO, buf, len);
+   memcpy(screen + (curx + cury * ws.ws_col), buf, len);
+   curx += len;
 }
 
 void print(char *buf)

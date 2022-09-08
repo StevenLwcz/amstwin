@@ -136,12 +136,12 @@ static void init_colours()
 }
 
 /* TO DO get screen size
- * set up signal handler for interupt
  * do I need one for screen resize
  */
 void init_window()
 {
     signal(SIGINT, end_amstwin);
+    signal(SIGTERM, end_amstwin);
 
     int num = write(STDOUT_FILENO, enter_alt_screen, 8);
     num = write(STDOUT_FILENO, clear_screen, 4);
@@ -267,10 +267,10 @@ int main()
        print_stream(1, buffer);
 
     }
-    sleep(5);
+    sleep(7);
     for (int i = 0; i < 30; i++)
         init_colour(i, 0, 0, 0);
-    sleep(5);
+    sleep(7);
 
     reset_colour();
     init_colour(0, 0, 0, 0);

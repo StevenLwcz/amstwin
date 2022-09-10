@@ -105,6 +105,7 @@ void end_window()
 {
     reset_colour();
     int num = write(STDOUT_FILENO, show_cursor, 6);
+    num = write(STDOUT_FILENO, clear_screen, 4);
     num = write(STDOUT_FILENO, exit_alt_screen, 8);
 }
 
@@ -160,6 +161,7 @@ void init_window()
 
 /* CSI row; column H */
 /* BASIC locate command is 1,1 based */
+/* locate really needs to be delayed in case the window needs scrolled */
 void locate(int x, int y)
 {
    if (curx != --x && cury != --y)
@@ -168,10 +170,9 @@ void locate(int x, int y)
        write(STDOUT_FILENO, seqbuf, len);
        curx = x; cury = y;
    }
-   else
-       printf("OPT\n");
 }
 
+/* locate really needs to be delayed in case the window needs scrolled */
 void locate_stream(int s, int x, int y)
 {
     x += window[s].left;

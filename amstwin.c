@@ -18,13 +18,13 @@
 struct amstwin 
 {
     int left;
-    int right;
+    int col;
     int top;
-    int bottom;
+    int line;
     int pen;
     int paper;
-    // int x;
-    // int y;
+    int x; // relative
+    int y;
 };
 
 static int curpen = -1;
@@ -107,18 +107,13 @@ void end_window()
     int num = write(STDOUT_FILENO, show_cursor, 6);
     num = write(STDOUT_FILENO, clear_screen, 4);
     num = write(STDOUT_FILENO, exit_alt_screen, 8);
+    free(screen);
 }
 
 void end_amstwin(int sig)
 {
     end_window();
     exit(0);
-}
-
-void cls(int stream)
-{
-   int len = sprintf(seqbuf, "\x1b[48;5;%dm%s", window[stream].paper, clear_screen);
-   write(STDOUT_FILENO, seqbuf, len);
 }
 
 /* \x1b]4; colour ;rgb:FF/FF/FF\x1b\
@@ -137,6 +132,47 @@ static void init_colours()
         int c = inks[i];
         init_colour(i, colour_palette[c].red, colour_palette[c].green, colour_palette[c].blue);
     }
+}
+
+
+/* CSI row; column H */
+/* BASIC locate command is 1,1 based */
+/* locate really needs to be delayed in case the window needs scrolled */
+void locate_stream(int s, int x, int y)
+{
+    /* TODO check if x and y are outside window */
+    x--; y--;
+    x += window[s].left;
+    y += window[s].top;
+    window[s].x = x;
+    window[s].y = y;
+    if (curx != x || cury != y )
+    {
+        int len = sprintf(seqbuf, "\x1b[%d;%dH", y, x, MAX_SEQBUF);
+        write(STDOUT_FILENO, seqbuf, len);
+        curx = x; cury = y;
+    }
+}
+
+void locate(int x, int y)
+{
+    locate_stream(0, x, y);
+}
+void cls(int s)
+{
+   curpaper = window[s].paper;
+   int len = sprintf(seqbuf, "\x1b[48;5;%dm", curpaper, MAX_SEQBUF);
+   write(STDOUT_FILENO, seqbuf, len);
+
+   char buf[window[s].col];
+
+   memset(buf, ' ', window[s].col);
+
+   for (int y = 1; y < window[s].line; y++)
+   {
+       locate_stream(s, 1, y);
+       write(STDOUT_FILENO, buf, window[s].col);
+   }
 }
 
 /* 
@@ -158,26 +194,41 @@ void init_window()
     cls(0);
 }
 
-
-/* CSI row; column H */
-/* BASIC locate command is 1,1 based */
-/* locate really needs to be delayed in case the window needs scrolled */
-void locate(int x, int y)
+static void scroll_window()
 {
-   if (curx != --x && cury != --y)
-   {
-       int len = sprintf(seqbuf, "\x1b[%d;%dH", y, x, MAX_SEQBUF);
-       write(STDOUT_FILENO, seqbuf, len);
-       curx = x; cury = y;
-   }
+
 }
 
-/* locate really needs to be delayed in case the window needs scrolled */
-void locate_stream(int s, int x, int y)
+static void print_window(int stream)
 {
-    x += window[s].left;
-    y += window[s].top;
-    locate(x, y);
+    locate_stream(stream, 1, 1);
+    for (int i = 1; window[stream].line; i++)
+    {
+        locate_stream(stream, 1, i);
+        int x = window[stream].left;
+        int y = window[stream].top * ws.ws_col;
+        int pos = x + y; 
+        write(STDOUT_FILENO, screen + pos, window[stream].col);
+    }
+}
+
+
+static void print_wrap(int s, char *buf)
+{
+
+   int len = strlen(buf);
+   int x = window[s].left + window[s].x;
+   int y = (window[s].top + window[s].y) * ws.ws_col;
+   int pos = x + y;
+   
+   while (len > window[s].col)
+   {
+       memcpy(screen + pos, buf, window[s].col);
+       len -= window[s].col;
+       pos += window[s].col;
+       buf += window[s].col;
+   }
+   memcpy(screen + pos, buf, len);
 }
 
 /* if text is longer than width it is wrapped round
@@ -191,22 +242,31 @@ void locate_stream(int s, int x, int y)
  */
 void print_stream(int stream, char *buf)
 {
-   if (window[stream].pen != curpen)
+   if (window[stream].x + strlen(buf) > window[stream].col)
    {
-       curpen = window[stream].pen;
-       int len = sprintf(seqbuf, "\x1b[38;5;%dm", curpen, MAX_SEQBUF);
-       write(STDOUT_FILENO, seqbuf, len);
+       print_wrap(stream, buf);
+       print_window(stream);
    }
-   if (window[stream].paper != curpaper)
+   else
    {
-       curpaper = window[stream].paper;
-       int len = sprintf(seqbuf, "\x1b[48;5;%dm", curpaper, MAX_SEQBUF);
-       write(STDOUT_FILENO, seqbuf, len);
+       if (window[stream].pen != curpen)
+       {
+           curpen = window[stream].pen;
+           int len = sprintf(seqbuf, "\x1b[38;5;%dm", curpen, MAX_SEQBUF);
+           write(STDOUT_FILENO, seqbuf, len);
+       }
+       if (window[stream].paper != curpaper)
+       {
+           curpaper = window[stream].paper;
+           int len = sprintf(seqbuf, "\x1b[48;5;%dm", curpaper, MAX_SEQBUF);
+           write(STDOUT_FILENO, seqbuf, len);
+       }
+       int len = strlen(buf);
+       write(STDOUT_FILENO, buf, len);
+       memcpy(screen + (curx + cury * ws.ws_col), buf, len);
+       curx += len;
+       window[stream].x += len;
    }
-   int len = strlen(buf);
-   write(STDOUT_FILENO, buf, len);
-   memcpy(screen + (curx + cury * ws.ws_col), buf, len);
-   curx += len;
 }
 
 void print(char *buf)
@@ -216,20 +276,10 @@ void print(char *buf)
 
 void new_window(int stream, int left, int right, int top, int bottom)
 {
-    window[stream].left = left;
-    window[stream].right = right;
-    window[stream].top = top;
-    window[stream].bottom = bottom;
-}
-
-static void scroll_window()
-{
-
-}
-
-static void print_window(int window)
-{
-
+    window[stream].left = left - 1;
+    window[stream].col = right - left + 1;
+    window[stream].top = top - 1;
+    window[stream].line = bottom - top + 1;
 }
 
 void pen(int stream, int p)
@@ -271,32 +321,17 @@ int main()
 {
     char buffer[MAX_SEQBUF];
     init_window();
-
+    pen(1, 1);
+    int p = 3;
     new_window(1, 10, 26, 10, 26);
+    paper(1, p);
     cls(1);
     locate_stream(1,1,1);
 
-    for (int p = 0; p < MAX_COLOUR; p++)
-    {
-       paper(1, p);
-       int len = sprintf(buffer, "%4d", p, MAX_SEQBUF);
-       print_stream(1, buffer);
+    int len = sprintf(buffer, "%4d", p, MAX_SEQBUF);
+    print_stream(1, buffer);
 
-    }
     sleep(7);
-    for (int i = 0; i < 30; i++)
-        init_colour(i, 0, 0, 0);
-    sleep(7);
-
-    reset_colour();
-    init_colour(0, 0, 0, 0);
-    print_stream(1, "RESET");
-    ink(0, 0);
-    for (int i = 2; i < MAX_COLOUR; i++)
-    {
-        ink(i, i+11);
-    }
-    sleep(10);
     end_window();
 
 

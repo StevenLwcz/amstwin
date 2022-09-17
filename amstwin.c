@@ -5,9 +5,9 @@
 #include <signal.h>
 #include <sys/ioctl.h>
 
-#define clear_screen "\x1b[2J"
 // #define move_up_n "\x1b[10A"
 // #define move_down_n "\x1b[10B"
+#define home "\x1b[H"
 #define enter_alt_screen "\x1b[?1049h"
 #define exit_alt_screen "\x1b[?1049l"
 #define hide_cursor "\x1b[?25l"
@@ -17,34 +17,34 @@
 
 struct amstwin 
 {
-    int left;
+    int left; // 0 based
     int col;
-    int top;
+    int top;  // 0 based
     int line;
     int pen;
     int paper;
-    int x; // relative
-    int y;
-};
+    int x; // relative 0 based
+    int y; // relative 0 based
+}; 
 
 static int curpen = -1;
 static int curpaper = -1;
 
-static int curx = -1;
+static int curx = -1; // 1 based
 static int cury = -1;
 
 #define MAX_SEQBUF 30
 static char seqbuf[MAX_SEQBUF];
 
 #define MAX_WINDOWS 8
-static struct amstwin window[MAX_WINDOWS] = {1,80,1,50,1,0,
-                                             1,80,1,50,1,0,
-                                             1,80,1,50,1,0,
-                                             1,80,1,50,1,0,
-                                             1,80,1,50,1,0,
-                                             1,80,1,50,1,0,
-                                             1,80,1,50,1,0,
-                                             1,80,1,50,1,0};
+static struct amstwin window[MAX_WINDOWS] = {0,00,0,00,1,0,0,0,
+                                             0,00,0,00,1,0,0,0,
+                                             0,00,0,00,1,0,0,0,
+                                             0,00,0,00,1,0,0,0,
+                                             0,00,0,00,1,0,0,0,
+                                             0,00,0,00,1,0,0,0,
+                                             0,00,0,00,1,0,0,0,
+                                             0,00,0,00,1,0,0,0};
 
 struct basic_colours 
 {
@@ -134,18 +134,32 @@ static void init_colours()
     }
 }
 
+// y is 0 based
+char *get_left_pos(int s, int y)
+{
+    return screen + window[s].left + (window[s].top + y) * ws.ws_col;
+}
+
+// int get_left_pos_int(int s, int y)
+// {
+    // return window[s].left + (window[s].top + y) * ws.ws_col;
+// }
+
+char *get_cur_pos(int s)
+{
+    return screen + ((window[s].left + window[s].x) + (window[s].top + window[s].y) * ws.ws_col);
+}
 
 /* CSI row; column H */
-/* BASIC locate command is 1,1 based */
+/* BASIC locate command is 1,1 based and so is ESC[col;lineH */
 /* locate really needs to be delayed in case the window needs scrolled */
 void locate_stream(int s, int x, int y)
 {
     /* TODO check if x and y are outside window */
-    x--; y--;
+    window[s].x = x - 1;
+    window[s].y = y - 1;
     x += window[s].left;
     y += window[s].top;
-    window[s].x = x;
-    window[s].y = y;
     if (curx != x || cury != y )
     {
         int len = sprintf(seqbuf, "\x1b[%d;%dH", y, x, MAX_SEQBUF);
@@ -160,24 +174,35 @@ void locate(int x, int y)
 }
 void cls(int s)
 {
-   curpaper = window[s].paper;
-   int len = sprintf(seqbuf, "\x1b[48;5;%dm", curpaper, MAX_SEQBUF);
-   write(STDOUT_FILENO, seqbuf, len);
+    curpaper = window[s].paper;
+    int len = sprintf(seqbuf, "\x1b[48;5;%dm", curpaper, MAX_SEQBUF);
+    write(STDOUT_FILENO, seqbuf, len);
 
-   char buf[window[s].col];
+    char buf[window[s].col];
 
-   memset(buf, ' ', window[s].col);
+    memset(buf, ' ', window[s].col);
 
-   for (int y = 1; y < window[s].line; y++)
-   {
-       locate_stream(s, 1, y);
-       write(STDOUT_FILENO, buf, window[s].col);
-   }
+    for (int y = 0; y < window[s].line; y++)
+    {
+        locate_stream(s, 1, y);
+        write(STDOUT_FILENO, buf, window[s].col);
+        memset(get_left_pos(s, y), ' ', window[s].col);
+    }
+    locate_stream(s, 1, 1);
 }
 
 /* 
  * do I need one for screen resize
  */
+
+void new_window(int stream, int left, int right, int top, int bottom)
+{
+    window[stream].left = left - 1;
+    window[stream].col = right - left + 1;
+    window[stream].top = top - 1;
+    window[stream].line = bottom - top + 1;
+}
+
 void init_window()
 {
     signal(SIGINT, end_amstwin);
@@ -186,6 +211,8 @@ void init_window()
     ioctl(STDIN_FILENO, TIOCGWINSZ, &ws);
 
     screen = malloc(ws.ws_row * ws.ws_col);
+    for (int i = 0; i < MAX_WINDOWS; i++)
+        new_window(i, 1, ws.ws_col, 1, ws.ws_row);
 
     int num = write(STDOUT_FILENO, enter_alt_screen, 8);
     num = write(STDOUT_FILENO, clear_screen, 4);
@@ -199,36 +226,33 @@ static void scroll_window()
 
 }
 
-static void print_window(int stream)
+static void print_window(int s)
 {
-    locate_stream(stream, 1, 1);
-    for (int i = 1; window[stream].line; i++)
+    for (int i = 0; i < window[s].line; i++)
     {
-        locate_stream(stream, 1, i);
-        int x = window[stream].left;
-        int y = window[stream].top * ws.ws_col;
-        int pos = x + y; 
-        write(STDOUT_FILENO, screen + pos, window[stream].col);
+        locate_stream(s, 1, i+1);
+        write(STDOUT_FILENO, get_left_pos(s, i), window[s].col);
     }
 }
 
 
 static void print_wrap(int s, char *buf)
 {
-
    int len = strlen(buf);
-   int x = window[s].left + window[s].x;
-   int y = (window[s].top + window[s].y) * ws.ws_col;
-   int pos = x + y;
+   int first = window[s].col - window[s].x;
+   memcpy(get_cur_pos(s), buf, first);
+   buf += first;
+   len -= first;
+   char *pos = get_left_pos(s, window[s].y + 1);
    
    while (len > window[s].col)
    {
-       memcpy(screen + pos, buf, window[s].col);
+       memcpy(pos, buf, window[s].col);
        len -= window[s].col;
-       pos += window[s].col;
+       pos += ws.ws_col;
        buf += window[s].col;
    }
-   memcpy(screen + pos, buf, len);
+   memcpy(pos, buf, len);
 }
 
 /* if text is longer than width it is wrapped round
@@ -274,14 +298,6 @@ void print(char *buf)
     print_stream(0, buf);
 }
 
-void new_window(int stream, int left, int right, int top, int bottom)
-{
-    window[stream].left = left - 1;
-    window[stream].col = right - left + 1;
-    window[stream].top = top - 1;
-    window[stream].line = bottom - top + 1;
-}
-
 void pen(int stream, int p)
 {
    if (p >= 0 && p < MAX_COLOUR)
@@ -321,20 +337,14 @@ int main()
 {
     char buffer[MAX_SEQBUF];
     init_window();
+    new_window(1, 2, 10, 2, 10);
     pen(1, 1);
-    int p = 3;
-    new_window(1, 10, 26, 10, 26);
-    paper(1, p);
+    paper(1, 0);
     cls(1);
     locate_stream(1,1,1);
-
-    int len = sprintf(buffer, "%4d", p, MAX_SEQBUF);
-    print_stream(1, buffer);
-
+    print_stream(1, "abcdefghijklmnopqrstuvwxyz12345");
     sleep(7);
     end_window();
-
-
 }
 int test2()
 {

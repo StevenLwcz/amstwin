@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <signal.h>
 #include <sys/ioctl.h>
@@ -32,19 +33,20 @@ static int curpaper = -1;
 
 static int curx = -1; // 1 based
 static int cury = -1;
+//:static int curpos = -1;
 
 #define MAX_SEQBUF 30
 static char seqbuf[MAX_SEQBUF];
 
 #define MAX_WINDOWS 8
-static struct amstwin window[MAX_WINDOWS] = {0,00,0,00,1,0,0,0,
-                                             0,00,0,00,1,0,0,0,
-                                             0,00,0,00,1,0,0,0,
-                                             0,00,0,00,1,0,0,0,
-                                             0,00,0,00,1,0,0,0,
-                                             0,00,0,00,1,0,0,0,
-                                             0,00,0,00,1,0,0,0,
-                                             0,00,0,00,1,0,0,0};
+static struct amstwin window[MAX_WINDOWS] = {0,0,0,0,1,0,0,0,
+                                             0,0,0,0,1,0,0,0,
+                                             0,0,0,0,1,0,0,0,
+                                             0,0,0,0,1,0,0,0,
+                                             0,0,0,0,1,0,0,0,
+                                             0,0,0,0,1,0,0,0,
+                                             0,0,0,0,1,0,0,0,
+                                             0,0,0,0,1,0,0,0};
 
 struct basic_colours 
 {
@@ -140,14 +142,24 @@ char *get_left_pos(int s, int y)
     return screen + window[s].left + (window[s].top + y) * ws.ws_col;
 }
 
-// int get_left_pos_int(int s, int y)
-// {
-    // return window[s].left + (window[s].top + y) * ws.ws_col;
-// }
+/* relative to zero */
+int get_cur_pos_num(int s)
+{
+    return (window[s].left + window[s].x) + (window[s].top + window[s].y) * ws.ws_col;
+}
 
+/* add screen address */
 char *get_cur_pos(int s)
 {
-    return screen + ((window[s].left + window[s].x) + (window[s].top + window[s].y) * ws.ws_col);
+    return screen + get_cur_pos_num(s);
+}
+
+void locate_stream_internal(int s, int x, int y)
+{
+    x += window[s].left;
+    y += window[s].top;
+    int len = sprintf(seqbuf, "\x1b[%d;%dH", y, x, MAX_SEQBUF);
+    write(STDOUT_FILENO, seqbuf, len);
 }
 
 /* CSI row; column H */
@@ -158,10 +170,10 @@ void locate_stream(int s, int x, int y)
     /* TODO check if x and y are outside window */
     window[s].x = x - 1;
     window[s].y = y - 1;
-    x += window[s].left;
-    y += window[s].top;
-    if (curx != x || cury != y )
+    if (curx != window[s].x || cury != window[s].y)
     {
+        x += window[s].left;
+        y += window[s].top;
         int len = sprintf(seqbuf, "\x1b[%d;%dH", y, x, MAX_SEQBUF);
         write(STDOUT_FILENO, seqbuf, len);
         curx = x; cury = y;
@@ -172,6 +184,7 @@ void locate(int x, int y)
 {
     locate_stream(0, x, y);
 }
+
 void cls(int s)
 {
     curpaper = window[s].paper;
@@ -184,7 +197,7 @@ void cls(int s)
 
     for (int y = 0; y < window[s].line; y++)
     {
-        locate_stream(s, 1, y);
+        locate_stream(s, 1, y+1);
         write(STDOUT_FILENO, buf, window[s].col);
         memset(get_left_pos(s, y), ' ', window[s].col);
     }
@@ -192,7 +205,7 @@ void cls(int s)
 }
 
 /* 
- * do I need one for screen resize
+ * do I need a signal handler to catch screen resize
  */
 
 void new_window(int stream, int left, int right, int top, int bottom)
@@ -221,21 +234,32 @@ void init_window()
     cls(0);
 }
 
-static void scroll_window()
+// y number of lines to scroll TODO //
+static void scroll_window(int s, int y)
 {
-
+    for (int i = 1; i < window[s].line; i++)
+    {
+        char *dest = get_left_pos(s, i-1);
+        char *src  = get_left_pos(s, i);
+        memcpy(dest, src, window[s].col);
+        // memcpy(get_left_pos(s, i), get_left_pos(s, i-1), window[s].col);
+    }
+    window[s].y--;
 }
 
 static void print_window(int s)
 {
-    for (int i = 0; i < window[s].line; i++)
+    for (int i = 0; i < window[s].y; i++)
     {
-        locate_stream(s, 1, i+1);
+        // locate_stream(s, 1, i+1);
+        locate_stream_internal(s, 1, i+1);
         write(STDOUT_FILENO, get_left_pos(s, i), window[s].col);
     }
+    locate_stream_internal(s, 1, window[s].y+1);
+    curx = 1; cury = window[s].y + 1;
 }
 
-
+/* TODO text may be bigger than window */
 static void print_wrap(int s, char *buf)
 {
    int len = strlen(buf);
@@ -243,16 +267,20 @@ static void print_wrap(int s, char *buf)
    memcpy(get_cur_pos(s), buf, first);
    buf += first;
    len -= first;
-   char *pos = get_left_pos(s, window[s].y + 1);
+   char *pos = get_left_pos(s, ++window[s].y);
    
    while (len > window[s].col)
    {
        memcpy(pos, buf, window[s].col);
+       window[s].y++;
        len -= window[s].col;
        pos += ws.ws_col;
        buf += window[s].col;
    }
    memcpy(pos, buf, len);
+   window[s].y++;
+   window[s].x=0;
+   curx = -1; cury = -1;
 }
 
 /* if text is longer than width it is wrapped round
@@ -264,7 +292,7 @@ static void print_wrap(int s, char *buf)
  * CSI 38;5; foreground colour m  256 colour
  * CSI 48;5; background colour m  256 colour
  */
-void print_stream(int stream, char *buf)
+void print_stream_cr(int stream, char *buf, bool cr)
 {
    if (window[stream].x + strlen(buf) > window[stream].col)
    {
@@ -273,6 +301,12 @@ void print_stream(int stream, char *buf)
    }
    else
    {
+       if (window[stream].y == window[stream].line)
+       {
+           scroll_window(stream, 1);
+           print_window(stream);
+       }
+
        if (window[stream].pen != curpen)
        {
            curpen = window[stream].pen;
@@ -285,12 +319,40 @@ void print_stream(int stream, char *buf)
            int len = sprintf(seqbuf, "\x1b[48;5;%dm", curpaper, MAX_SEQBUF);
            write(STDOUT_FILENO, seqbuf, len);
        }
+       // if (curx != (window[stream].left + window[stream].x) || cury != (window[stream].y + window[stream].top))
+       // {
+           // locate_stream_internal(stream, window[stream].x, window[stream].y);
+       // }
        int len = strlen(buf);
        write(STDOUT_FILENO, buf, len);
-       memcpy(screen + (curx + cury * ws.ws_col), buf, len);
-       curx += len;
-       window[stream].x += len;
+       // memcpy(screen + (curx + cury * ws.ws_col), buf, len);
+       memcpy(get_cur_pos(stream), buf, len);
+       if (cr)
+       {
+           window[stream].x = 0;
+           window[stream].y += 1;
+           if (window[stream].left < 2)
+           {
+               write(STDOUT_FILENO, "\n", 1);
+           }
+           else
+           {
+               int len = sprintf(seqbuf, "\n\x1b[%dC", window[stream].left, MAX_SEQBUF); // move cursor right %d columns
+               write(STDOUT_FILENO, seqbuf, len);
+           }
+       }
+       else
+       {
+           curx += len; 
+           window[stream].x += len; 
+       }
+       
    }
+}
+
+void print_stream(int stream, char *buf)
+{
+    print_stream_cr(stream, buf, false);
 }
 
 void print(char *buf)
@@ -337,22 +399,80 @@ int main()
 {
     char buffer[MAX_SEQBUF];
     init_window();
-    new_window(1, 2, 10, 2, 10);
+    locate(1,1);
+    print("1234567890");
+    locate(1,2);
+    print("2");
+    locate(1,3);
+    print("3 ");
+    locate(1,4);
+    print("4 ");
+    locate(1,5);
+    print("5 ");
+    locate(1,6);
+    print("6 ");
+    locate(1,7);
+    print_stream_cr(0, "7", true);
+    print_stream_cr(0, "8", true);
+    print_stream_cr(0, "9", true);
+    print_stream_cr(0, "A", true);
+    print_stream_cr(0, "B", true);
+    print_stream_cr(0, "C", true);
+    print_stream_cr(0, "D", true);
+    new_window(1, 3, 12, 3, 12);
     pen(1, 1);
-    paper(1, 0);
+    paper(1, 3);
     cls(1);
-    locate_stream(1,1,1);
-    print_stream(1, "abcdefghijklmnopqrstuvwxyz12345");
-    sleep(7);
+    // locate_stream(1,1,1);
+    print_stream_cr(1, "abcdefghijklmnopqrstuvwxyz----------", true);
+    print_stream_cr(1, "Hello1", true);
+    print_stream_cr(1, "Hello2", true);
+    print_stream_cr(1, "Hello3", true);
+    print_stream_cr(1, "Hello4", true);
+    print_stream_cr(1, "Hello5", true);
+    print_stream_cr(1, "Hello6", true);
+    sleep(1);
+    print_stream_cr(1, "Hello7", true);
+    sleep(1);
+    print_stream_cr(1, "Hello7", true);
+    sleep(1);
+    print_stream_cr(1, "Hello7", true);
+    sleep(1);
+    print_stream_cr(1, "Hello7", true);
+    sleep(1);
+    print_stream_cr(1, "Hello7", true);
+    sleep(1);
+    print_stream_cr(1, "Hello7", true);
+    sleep(1);
+    print_stream_cr(1, "Hello7", true);
+    sleep(1);
+    print_stream_cr(1, "Hello7", true);
+    sleep(1);
+    print_stream_cr(1, "Hello7", true);
+    sleep(1);
+    print_stream_cr(1, "Hello7", true);
+    sleep(1);
+    print_stream_cr(1, "Hello7", true);
+    sleep(1);
+    print_stream_cr(1, "Hello7", true);
+    sleep(1);
+    print_stream_cr(1, "Hello7", true);
+    sleep(1);
+    print_stream_cr(1, "Hello7", true);
+    sleep(1);
+    print_stream_cr(1, "Hello7", true);
+    sleep(1);
+    print_stream_cr(1, "Hello7", true);
+    sleep(1);
     end_window();
 }
+
 int test2()
 {
-
     char buffer[MAX_SEQBUF];
     init_window();
 
-    new_window(1, 10, 26, 10, 26);
+    new_window(1, 5, 90, 5, 40);
     locate_stream(1,1,1);
     for (int y = 0; y<16; y++) 
     {

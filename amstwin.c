@@ -237,6 +237,8 @@ void init_window()
 // y number of lines to scroll TODO //
 static void scroll_window(int s, int y)
 {
+  for (int j = 0; j < y; j++)
+  {
     for (int i = 1; i < window[s].line; i++)
     {
         char *dest = get_left_pos(s, i-1);
@@ -245,6 +247,7 @@ static void scroll_window(int s, int y)
         // memcpy(get_left_pos(s, i), get_left_pos(s, i-1), window[s].col);
     }
     window[s].y--;
+  }
 }
 
 static void print_window(int s)
@@ -277,6 +280,7 @@ static void print_wrap(int s, char *buf)
        pos += ws.ws_col;
        buf += window[s].col;
    }
+   memset(pos, ' ', window[s].col);
    memcpy(pos, buf, len);
    window[s].y++;
    window[s].x=0;
@@ -296,6 +300,10 @@ void print_stream_cr(int stream, char *buf, bool cr)
 {
    if (window[stream].x + strlen(buf) > window[stream].col)
    {
+       int len = strlen(buf);
+       int lines = len / window[stream].col + 1;
+       if (window[stream].y + lines >= window[stream].line)
+           scroll_window(stream, lines);
        print_wrap(stream, buf);
        print_window(stream);
    }
@@ -319,13 +327,9 @@ void print_stream_cr(int stream, char *buf, bool cr)
            int len = sprintf(seqbuf, "\x1b[48;5;%dm", curpaper, MAX_SEQBUF);
            write(STDOUT_FILENO, seqbuf, len);
        }
-       // if (curx != (window[stream].left + window[stream].x) || cury != (window[stream].y + window[stream].top))
-       // {
-           // locate_stream_internal(stream, window[stream].x, window[stream].y);
-       // }
+       /* if not correct cur position need to locate ??? */
        int len = strlen(buf);
        write(STDOUT_FILENO, buf, len);
-       // memcpy(screen + (curx + cury * ws.ws_col), buf, len);
        memcpy(get_cur_pos(stream), buf, len);
        if (cr)
        {
@@ -434,36 +438,20 @@ int main()
     sleep(1);
     print_stream_cr(1, "Hello7", true);
     sleep(1);
-    print_stream_cr(1, "Hello7", true);
+    print_stream_cr(1, "Hello8", true);
     sleep(1);
-    print_stream_cr(1, "Hello7", true);
+    print_stream_cr(1, "Hello9", true);
     sleep(1);
-    print_stream_cr(1, "Hello7", true);
+    print_stream_cr(1, "Hello10", true);
     sleep(1);
-    print_stream_cr(1, "Hello7", true);
-    sleep(1);
-    print_stream_cr(1, "Hello7", true);
-    sleep(1);
-    print_stream_cr(1, "Hello7", true);
-    sleep(1);
-    print_stream_cr(1, "Hello7", true);
-    sleep(1);
-    print_stream_cr(1, "Hello7", true);
-    sleep(1);
-    print_stream_cr(1, "Hello7", true);
-    sleep(1);
-    print_stream_cr(1, "Hello7", true);
-    sleep(1);
-    print_stream_cr(1, "Hello7", true);
-    sleep(1);
-    print_stream_cr(1, "Hello7", true);
-    sleep(1);
-    print_stream_cr(1, "Hello7", true);
-    sleep(1);
-    print_stream_cr(1, "Hello7", true);
-    sleep(1);
-    print_stream_cr(1, "Hello7", true);
-    sleep(1);
+    print_stream_cr(1, "Hello11abcdefghijklmnopqrstuvwxyz12", true);
+    sleep(2);
+    print_stream_cr(1, "Hello12abcdefghijklmnopqrstuvwxyz12", true);
+    sleep(2);
+    print_stream_cr(1, "Hello13abcdefghijklmnopqrstuvwxyz12", true);
+    sleep(2);
+    print_stream_cr(1, "Hello14abcdefghijklmnopqrstuvwxyz12", true);
+    sleep(10);
     end_window();
 }
 

@@ -1,3 +1,4 @@
+/* next step sort out colours when scrolling */
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
@@ -27,6 +28,12 @@ struct amstwin
     int x; // relative 0 based
     int y; // relative 0 based
 }; 
+
+typedef struct sqr_colour
+{
+    char pen;
+    char paper;
+} sqr_colour_t;
 
 static int curpen = -1;
 static int curpaper = -1;
@@ -97,6 +104,7 @@ static const int inks[MAX_COLOUR] = { 1, 24, 20,  6, 26,  0,  2,  8,
 
 static struct winsize ws;
 static char *screen = NULL;
+static sqr_colour_t *scr_colours = NULL;
 
 static void reset_colour()
 {
@@ -110,6 +118,7 @@ void end_window()
     num = write(STDOUT_FILENO, clear_screen, 4);
     num = write(STDOUT_FILENO, exit_alt_screen, 8);
     free(screen);
+    // free(scr_colours);
 }
 
 void end_amstwin(int sig)
@@ -154,6 +163,16 @@ char *get_cur_pos(int s)
     return screen + get_cur_pos_num(s);
 }
 
+sqr_colour_t *get_colour_left_pos(int s, int y)
+{
+    return scr_colours + sizeof(sqr_colour_t) * (window[s].left + (window[s].top + y) * ws.ws_col);
+}
+
+sqr_colour_t *get_colour_cur_pos(int s)
+{
+    return scr_colours + sizeof(sqr_colour_t) * (window[s].left + window[s].x + (window[s].top + window[s].y) * ws.ws_col);
+}
+
 void locate_stream_internal(int s, int x, int y)
 {
     x += window[s].left;
@@ -185,11 +204,23 @@ void locate(int x, int y)
     locate_stream(0, x, y);
 }
 
+static void write_pen(int pen)
+{
+    int len = sprintf(seqbuf, "\x1b[38;5;%dm", pen, MAX_SEQBUF);
+    write(STDOUT_FILENO, seqbuf, len);
+}
+
+static void write_paper(int paper)
+{
+    int len = sprintf(seqbuf, "\x1b[48;5;%dm", paper, MAX_SEQBUF);
+    write(STDOUT_FILENO, seqbuf, len);
+}
+
+
 void cls(int s)
 {
     curpaper = window[s].paper;
-    int len = sprintf(seqbuf, "\x1b[48;5;%dm", curpaper, MAX_SEQBUF);
-    write(STDOUT_FILENO, seqbuf, len);
+    write_paper(curpaper);
 
     char buf[window[s].col];
 
@@ -199,8 +230,19 @@ void cls(int s)
     {
         locate_stream(s, 1, y+1);
         write(STDOUT_FILENO, buf, window[s].col);
-        memset(get_left_pos(s, y), ' ', window[s].col);
+        memcpy(get_left_pos(s, y), buf, window[s].col); 
+        // memset(get_left_pos(s, y), ' ', window[s].col);
     }
+
+    sqr_colour_t sc = {window[s].pen, curpaper};
+    sqr_colour_t cbuf[window[s].col];
+
+    for (int i = 0; i < window[s].col; i++)
+        cbuf[i] = sc;
+
+    for (int i = 0; i < window[s].line; i++)
+        memcpy(get_colour_left_pos(s, i), cbuf, sizeof(cbuf));
+
     locate_stream(s, 1, 1);
 }
 
@@ -223,9 +265,12 @@ void init_window()
 
     ioctl(STDIN_FILENO, TIOCGWINSZ, &ws);
 
-    screen = malloc(ws.ws_row * ws.ws_col);
+    int scr_size = ws.ws_row * ws.ws_col;
+    screen = malloc(scr_size);
     for (int i = 0; i < MAX_WINDOWS; i++)
         new_window(i, 1, ws.ws_col, 1, ws.ws_row);
+
+    scr_colours = malloc(scr_size * sizeof(sqr_colour_t));
 
     int num = write(STDOUT_FILENO, enter_alt_screen, 8);
     num = write(STDOUT_FILENO, clear_screen, 4);
@@ -241,10 +286,8 @@ static void scroll_window(int s, int y)
   {
     for (int i = 1; i < window[s].line; i++)
     {
-        char *dest = get_left_pos(s, i-1);
-        char *src  = get_left_pos(s, i);
-        memcpy(dest, src, window[s].col);
-        // memcpy(get_left_pos(s, i), get_left_pos(s, i-1), window[s].col);
+        memcpy(get_left_pos(s, i-1), get_left_pos(s, i), window[s].col);
+        memcpy(get_colour_left_pos(s, i-1), get_colour_left_pos(s, i), window[s].col);
     }
     window[s].y--;
   }
@@ -254,15 +297,46 @@ static void print_window(int s)
 {
     for (int i = 0; i < window[s].y; i++)
     {
-        // locate_stream(s, 1, i+1);
+        char *pos = get_left_pos(s, i);
         locate_stream_internal(s, 1, i+1);
-        write(STDOUT_FILENO, get_left_pos(s, i), window[s].col);
+        sqr_colour_t *cc = get_colour_left_pos(s, i);
+        write_pen(cc->pen);
+        write_paper(cc->paper);
+        sqr_colour_t *tmp = cc;
+        int len = 0;
+        for (int j = 0; j < window[s].col; j++)
+        {
+            tmp++;
+            len++;
+            if (tmp->pen != cc->pen || tmp->paper != cc->paper)
+            {
+                if (tmp->pen != cc->pen)
+                   write_pen(tmp->pen);
+                if (tmp->paper !=  cc->paper)
+                   write_paper(tmp->paper);
+                *cc = *tmp;
+            }
+        }
+        write(STDOUT_FILENO, pos, len);
+        pos+=len;
     }
     locate_stream_internal(s, 1, window[s].y+1);
     curx = 1; cury = window[s].y + 1;
 }
 
+
+/*
+static set_colours(int s)
+{
+       sqr_colour_t tmp = {curpen, curpaper};
+       sqr_colour_t *p = get_colour_cur_pos(stream);
+       for (int i = 0; i < len; i++)
+           *p++ = tmp;
+}
+*/
+
 /* TODO text may be bigger than window */
+/* TODO set colour */
 static void print_wrap(int s, char *buf)
 {
    int len = strlen(buf);
@@ -314,21 +388,25 @@ void print_stream_cr(int stream, char *buf, bool cr)
            scroll_window(stream, 1);
            print_window(stream);
        }
-
        if (window[stream].pen != curpen)
        {
            curpen = window[stream].pen;
-           int len = sprintf(seqbuf, "\x1b[38;5;%dm", curpen, MAX_SEQBUF);
-           write(STDOUT_FILENO, seqbuf, len);
+           write_pen(curpen);
        }
        if (window[stream].paper != curpaper)
        {
            curpaper = window[stream].paper;
-           int len = sprintf(seqbuf, "\x1b[48;5;%dm", curpaper, MAX_SEQBUF);
-           write(STDOUT_FILENO, seqbuf, len);
+           write_paper(curpaper);
        }
-       /* if not correct cur position need to locate ??? */
+
        int len = strlen(buf);
+
+       /* update colours */
+       sqr_colour_t tmp = {curpen, curpaper};
+       sqr_colour_t *p = get_colour_cur_pos(stream);
+       for (int i = 0; i < len; i++)
+           *p++ = tmp;
+
        write(STDOUT_FILENO, buf, len);
        memcpy(get_cur_pos(stream), buf, len);
        if (cr)
@@ -423,17 +501,28 @@ int main()
     print_stream_cr(0, "B", true);
     print_stream_cr(0, "C", true);
     print_stream_cr(0, "D", true);
-    new_window(1, 3, 12, 3, 12);
+    new_window(1, 3, 30, 3, 12);
     pen(1, 1);
     paper(1, 3);
     cls(1);
-    // locate_stream(1,1,1);
-    print_stream_cr(1, "abcdefghijklmnopqrstuvwxyz----------", true);
+    sleep(3);
+    print_stream_cr(1, "abcdefgh-----nopqrstuvwxyz----------", true);
+    sleep(3);
+    paper(1,3);
     print_stream_cr(1, "Hello1", true);
+    sleep(1);
+    paper(1,3);
     print_stream_cr(1, "Hello2", true);
+    pen(1,1);
+    paper(1,4);
     print_stream_cr(1, "Hello3", true);
+    sleep(1);
+    paper(1,5);
     print_stream_cr(1, "Hello4", true);
+    paper(1,6);
     print_stream_cr(1, "Hello5", true);
+    sleep(1);
+    paper(1,7);
     print_stream_cr(1, "Hello6", true);
     sleep(1);
     print_stream_cr(1, "Hello7", true);
@@ -441,16 +530,23 @@ int main()
     print_stream_cr(1, "Hello8", true);
     sleep(1);
     print_stream_cr(1, "Hello9", true);
-    sleep(1);
-    print_stream_cr(1, "Hello10", true);
-    sleep(1);
-    print_stream_cr(1, "Hello11abcdefghijklmnopqrstuvwxyz12", true);
-    sleep(2);
-    print_stream_cr(1, "Hello12abcdefghijklmnopqrstuvwxyz12", true);
-    sleep(2);
-    print_stream_cr(1, "Hello13abcdefghijklmnopqrstuvwxyz12", true);
-    sleep(2);
-    print_stream_cr(1, "Hello14abcdefghijklmnopqrstuvwxyz12", true);
+    // sleep(1);
+    // print_stream_cr(1, "Hello8", true);
+    // sleep(1);
+    // print_stream_cr(1, "Hello9", true);
+    // sleep(1);
+    // print_stream_cr(1, "Hello10", true);
+    // sleep(1);
+    // pen(1, 5);
+    // print_stream_cr(1, "aaaaaaaaaaabbbbbbbbbbbbbbbccccccc12", true);
+    // sleep(3);
+    // pen(1, 3);
+    // print_stream_cr(1, "dddddddddddddeeeeeeeeeeffffffffff12", true);
+    // sleep(3);
+    // paper(1, 4);
+    // print_stream_cr(1, "ggggggggggjjjjjjjjjjjjjooooooooooo2", true);
+    // sleep(3);
+    // print_stream_cr(1, "wwwwwwwwwwwwwwwwooooooooooopppppppp", true);
     sleep(10);
     end_window();
 }

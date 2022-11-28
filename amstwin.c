@@ -310,6 +310,9 @@ static void print_window(int s)
             len++;
             if (tmp->pen != cc->pen || tmp->paper != cc->paper)
             {
+                write(STDOUT_FILENO, pos, len);
+                pos+=len;
+                len = 0;
                 if (tmp->pen != cc->pen)
                    write_pen(tmp->pen);
                 if (tmp->paper !=  cc->paper)
@@ -387,6 +390,7 @@ void print_stream_cr(int stream, char *buf, bool cr)
        {
            scroll_window(stream, 1);
            print_window(stream);
+           curpen = -1; curpaper = -1;
        }
        if (window[stream].pen != curpen)
        {
@@ -505,48 +509,27 @@ int main()
     pen(1, 1);
     paper(1, 3);
     cls(1);
-    sleep(3);
-    print_stream_cr(1, "abcdefgh-----nopqrstuvwxyz----------", true);
-    sleep(3);
+    // print_stream_cr(1, "abcdefgh-----nopqrstuvwxyz----------", true);
+    // sleep(3);
     paper(1,3);
     print_stream_cr(1, "Hello1", true);
-    sleep(1);
-    paper(1,3);
-    print_stream_cr(1, "Hello2", true);
-    pen(1,1);
     paper(1,4);
+    print_stream_cr(1, "Hello2", true);
+    paper(1,2);
     print_stream_cr(1, "Hello3", true);
-    sleep(1);
     paper(1,5);
     print_stream_cr(1, "Hello4", true);
     paper(1,6);
     print_stream_cr(1, "Hello5", true);
-    sleep(1);
     paper(1,7);
     print_stream_cr(1, "Hello6", true);
-    sleep(1);
     print_stream_cr(1, "Hello7", true);
-    sleep(1);
     print_stream_cr(1, "Hello8", true);
-    sleep(1);
     print_stream_cr(1, "Hello9", true);
-    // sleep(1);
-    // print_stream_cr(1, "Hello8", true);
-    // sleep(1);
-    // print_stream_cr(1, "Hello9", true);
-    // sleep(1);
-    // print_stream_cr(1, "Hello10", true);
-    // sleep(1);
-    // pen(1, 5);
-    // print_stream_cr(1, "aaaaaaaaaaabbbbbbbbbbbbbbbccccccc12", true);
-    // sleep(3);
-    // pen(1, 3);
-    // print_stream_cr(1, "dddddddddddddeeeeeeeeeeffffffffff12", true);
-    // sleep(3);
-    // paper(1, 4);
-    // print_stream_cr(1, "ggggggggggjjjjjjjjjjjjjooooooooooo2", true);
-    // sleep(3);
-    // print_stream_cr(1, "wwwwwwwwwwwwwwwwooooooooooopppppppp", true);
+    sleep(2);
+    print_stream_cr(1, "Hello10", true);
+    sleep(2);
+    print_stream_cr(1, "Hello11", true);
     sleep(10);
     end_window();
 }

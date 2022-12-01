@@ -216,6 +216,11 @@ static void write_paper(int paper)
     write(STDOUT_FILENO, seqbuf, len);
 }
 
+void setcolour(sqr_colour_t *dest, sqr_colour_t src, int len)
+{
+    for (int i = 0; i < len; i++)
+        *dest++ = src;
+}
 
 void cls(int s)
 {
@@ -236,9 +241,7 @@ void cls(int s)
 
     sqr_colour_t sc = {window[s].pen, curpaper};
     sqr_colour_t cbuf[window[s].col];
-
-    for (int i = 0; i < window[s].col; i++)
-        cbuf[i] = sc;
+    setcolour(cbuf, sc, window[s].col);
 
     for (int i = 0; i < window[s].line; i++)
         memcpy(get_colour_left_pos(s, i), cbuf, sizeof(cbuf));
@@ -292,11 +295,11 @@ static void scroll_window(int s, int y)
     window[s].y--;
   }
   char *pos = get_left_pos(s, window[s].line-1);
-  memset(pos, 'X', window[s].col);
+  memset(pos, ' ', window[s].col);
+
   sqr_colour_t tmp = {window[s].pen, window[s].paper};
   sqr_colour_t *p = get_colour_left_pos(s, window[s].line-1);
-  for (int i = 0; i < window[s].col; i++)
-      *p++ = tmp;
+  setcolour(get_colour_left_pos(s, window[s].line - 1), tmp, window[s].col);
 }
 
 static void print_window(int s)
@@ -332,17 +335,6 @@ static void print_window(int s)
     locate_stream_internal(s, 1, window[s].y+1);
     curx = 1; cury = window[s].y + 1;
 }
-
-
-/*
-static set_colours(int s)
-{
-       sqr_colour_t tmp = {curpen, curpaper};
-       sqr_colour_t *p = get_colour_cur_pos(stream);
-       for (int i = 0; i < len; i++)
-           *p++ = tmp;
-}
-*/
 
 /* TODO text may be bigger than window */
 /* TODO set colour */
@@ -413,9 +405,7 @@ void print_stream_cr(int stream, char *buf, bool cr)
 
        /* update colours */
        sqr_colour_t tmp = {curpen, curpaper};
-       sqr_colour_t *p = get_colour_cur_pos(stream);
-       for (int i = 0; i < len; i++)
-           *p++ = tmp;
+       setcolour(get_colour_cur_pos(stream), tmp, len);
 
        write(STDOUT_FILENO, buf, len);
        memcpy(get_cur_pos(stream), buf, len);
@@ -511,7 +501,7 @@ int main()
     print_stream_cr(0, "B", true);
     print_stream_cr(0, "C", true);
     print_stream_cr(0, "D", true);
-    new_window(1, 3, 8, 3, 8);
+    new_window(1, 3, 22, 3, 12);
     pen(1, 1);
     paper(1, 2);
     cls(1);
@@ -524,17 +514,13 @@ int main()
     print_stream_cr(1, "Dello4", true);
     paper(1,6);
     print_stream_cr(1, "Eello5", true);
-    sleep(3);
     paper(1,7);
     print_stream_cr(1, "Fello6", true);
-    sleep(3);
+    sleep(1);
     paper(1,8);
     print_stream_cr(1, "Gello7", true);
-    sleep(3);
     print_stream_cr(1, "Hello8", true);
-    sleep(3);
     print_stream_cr(1, "Iello9", true);
-    sleep(3);
     print_stream_cr(1, "Jello1", true);
     sleep(1);
     print_stream_cr(1, "Kello2", true);

@@ -216,7 +216,7 @@ static void write_paper(int paper)
     write(STDOUT_FILENO, seqbuf, len);
 }
 
-void setcolour(sqr_colour_t *dest, sqr_colour_t src, int len)
+void setcolour(sqr_colour_t *dest, const sqr_colour_t src, const int len)
 {
     for (int i = 0; i < len; i++)
         *dest++ = src;
@@ -239,9 +239,8 @@ void cls(int s)
         // memset(get_left_pos(s, y), ' ', window[s].col);
     }
 
-    sqr_colour_t sc = {window[s].pen, curpaper};
     sqr_colour_t cbuf[window[s].col];
-    setcolour(cbuf, sc, window[s].col);
+    setcolour(cbuf, (sqr_colour_t){window[s].pen, curpaper}, window[s].col);
 
     for (int i = 0; i < window[s].line; i++)
         memcpy(get_colour_left_pos(s, i), cbuf, sizeof(cbuf));
@@ -297,9 +296,10 @@ static void scroll_window(int s, int y)
   char *pos = get_left_pos(s, window[s].line-1);
   memset(pos, ' ', window[s].col);
 
-  sqr_colour_t tmp = {window[s].pen, window[s].paper};
   sqr_colour_t *p = get_colour_left_pos(s, window[s].line-1);
-  setcolour(get_colour_left_pos(s, window[s].line - 1), tmp, window[s].col);
+  setcolour(get_colour_left_pos(s, window[s].line - 1), 
+           (sqr_colour_t){window[s].pen, window[s].paper}, 
+           window[s].col);
 }
 
 static void print_window(int s)
@@ -404,8 +404,7 @@ void print_stream_cr(int stream, char *buf, bool cr)
        int len = strlen(buf);
 
        /* update colours */
-       sqr_colour_t tmp = {curpen, curpaper};
-       setcolour(get_colour_cur_pos(stream), tmp, len);
+       setcolour(get_colour_cur_pos(stream), (sqr_colour_t){curpen, curpaper}, len);
 
        write(STDOUT_FILENO, buf, len);
        memcpy(get_cur_pos(stream), buf, len);

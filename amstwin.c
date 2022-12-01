@@ -165,12 +165,12 @@ char *get_cur_pos(int s)
 
 sqr_colour_t *get_colour_left_pos(int s, int y)
 {
-    return scr_colours + sizeof(sqr_colour_t) * (window[s].left + (window[s].top + y) * ws.ws_col);
+    return scr_colours + (window[s].left + (window[s].top + y) * ws.ws_col);
 }
 
 sqr_colour_t *get_colour_cur_pos(int s)
 {
-    return scr_colours + sizeof(sqr_colour_t) * (window[s].left + window[s].x + (window[s].top + window[s].y) * ws.ws_col);
+    return scr_colours + (window[s].left + window[s].x + (window[s].top + window[s].y) * ws.ws_col);
 }
 
 void locate_stream_internal(int s, int x, int y)

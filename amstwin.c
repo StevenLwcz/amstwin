@@ -216,10 +216,9 @@ static void write_paper(int paper)
     write(STDOUT_FILENO, seqbuf, len);
 }
 
-void setcolour(sqr_colour_t *dest, const sqr_colour_t src, const int len)
+static void setcolour(sqr_colour_t *dest, const sqr_colour_t src, const int len)
 {
-    for (int i = 0; i < len; i++)
-        *dest++ = src;
+    for (int i = 0; i < len; i++) *dest++ = src;
 }
 
 void cls(int s)
@@ -337,12 +336,14 @@ static void print_window(int s)
 }
 
 /* TODO text may be bigger than window */
-/* TODO set colour */
 static void print_wrap(int s, char *buf)
 {
    int len = strlen(buf);
    int first = window[s].col - window[s].x;
    memcpy(get_cur_pos(s), buf, first);
+   sqr_colour_t cc = {window[s].pen, window[s].paper};
+   setcolour(get_colour_cur_pos(s), cc, first);
+
    buf += first;
    len -= first;
    char *pos = get_left_pos(s, ++window[s].y);
@@ -350,6 +351,7 @@ static void print_wrap(int s, char *buf)
    while (len > window[s].col)
    {
        memcpy(pos, buf, window[s].col);
+       setcolour(get_colour_left_pos(s, window[s].y), cc, window[s].col);
        window[s].y++;
        len -= window[s].col;
        pos += ws.ws_col;
@@ -357,6 +359,7 @@ static void print_wrap(int s, char *buf)
    }
    memset(pos, ' ', window[s].col);
    memcpy(pos, buf, len);
+   setcolour(get_colour_left_pos(s, window[s].y), cc, len);
    window[s].y++;
    window[s].x=0;
    curx = -1; cury = -1;
@@ -504,7 +507,22 @@ int main()
     pen(1, 1);
     paper(1, 2);
     cls(1);
+    paper(1,3);
+    print_stream_cr(1, "-----aaaaa-----bbbbb-----ccccc", true);
+    sleep(1);
+    print_stream_cr(1, "-----aaaaa-----bbbbb-----ccccc", true);
+    sleep(1);
+    paper(1,4);
+    print_stream_cr(1, "-----aaaaa-----bbbbb-----ccccc", true);
+    sleep(1);
+    print_stream_cr(1, "-----aaaaa-----bbbbb-----ccccc", true);
+    paper(1,5);
+    sleep(1);
+    print_stream_cr(1, "-----aaaaa-----bbbbb-----ccccc", true);
+    paper(1,6);
+    sleep(1);
     print_stream_cr(1, "Aello1", true);
+    sleep(1);
     paper(1,3);
     print_stream_cr(1, "Bello2", true);
     paper(1,4);

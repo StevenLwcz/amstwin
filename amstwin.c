@@ -280,25 +280,24 @@ void init_window()
     cls(0);
 }
 
-// y number of lines to scroll TODO //
-static void scroll_window(int s, int y)
+static void scroll_window(int s, int num)
 {
-  for (int j = 0; j < y; j++)
-  {
-    for (int i = 0; i < window[s].line-1; i++)
+    for (int i = 0; i < window[s].line - num; i++)
     {
-        memcpy(get_left_pos(s, i), get_left_pos(s, i+1), window[s].col);
-        memcpy(get_colour_left_pos(s, i), get_colour_left_pos(s, i+1), window[s].col * sizeof(sqr_colour_t));
+        memcpy(get_left_pos(s, i), get_left_pos(s, i + num), window[s].col);
+        memcpy(get_colour_left_pos(s, i), get_colour_left_pos(s, i + num), window[s].col * sizeof(sqr_colour_t));
     }
-    window[s].y--;
-  }
-  char *pos = get_left_pos(s, window[s].line-1);
-  memset(pos, ' ', window[s].col);
 
-  sqr_colour_t *p = get_colour_left_pos(s, window[s].line-1);
-  setcolour(get_colour_left_pos(s, window[s].line - 1), 
-           (sqr_colour_t){window[s].pen, window[s].paper}, 
-           window[s].col);
+    window[s].y -= num;
+
+    for (int j = 0; j < num; j++)
+    {
+        char *pos = get_left_pos(s, window[s].line - j);
+        memset(pos, ' ', window[s].col);
+        setcolour(get_colour_left_pos(s, window[s].line - j), 
+                  (sqr_colour_t){window[s].pen, window[s].paper}, 
+                  window[s].col);
+    }
 }
 
 static void print_window(int s)
@@ -376,10 +375,10 @@ static void print_wrap(int s, char *buf)
  */
 void print_stream_cr(int stream, char *buf, bool cr)
 {
-   if (window[stream].x + strlen(buf) > window[stream].col)
+   int len = strlen(buf);
+   if (window[stream].x + len > window[stream].col)
    {
-       int len = strlen(buf);
-       int lines = len / window[stream].col + 1;
+       int lines = (window[stream].x + len) / window[stream].col;
        if (window[stream].y + lines >= window[stream].line)
            scroll_window(stream, lines);
        print_wrap(stream, buf);
@@ -507,42 +506,25 @@ int main()
     pen(1, 1);
     paper(1, 2);
     cls(1);
-    paper(1,3);
-    print_stream_cr(1, "-----aaaaa-----bbbbb-----ccccc", true);
-    sleep(1);
-    print_stream_cr(1, "-----aaaaa-----bbbbb-----ccccc", true);
-    sleep(1);
-    paper(1,4);
-    print_stream_cr(1, "-----aaaaa-----bbbbb-----ccccc", true);
-    sleep(1);
-    print_stream_cr(1, "-----aaaaa-----bbbbb-----ccccc", true);
-    paper(1,5);
-    sleep(1);
-    print_stream_cr(1, "-----aaaaa-----bbbbb-----ccccc", true);
     paper(1,6);
-    sleep(1);
-    print_stream_cr(1, "Aello1", true);
-    sleep(1);
-    paper(1,3);
-    print_stream_cr(1, "Bello2", true);
-    paper(1,4);
-    print_stream_cr(1, "Cello3", true);
-    paper(1,5);
-    print_stream_cr(1, "Dello4", true);
-    paper(1,6);
-    print_stream_cr(1, "Eello5", true);
-    paper(1,7);
-    print_stream_cr(1, "Fello6", true);
-    sleep(1);
-    paper(1,8);
-    print_stream_cr(1, "Gello7", true);
+    print_stream_cr(1, "Hello0", true);
+    print_stream_cr(1, "Hello1", true);
+    print_stream_cr(1, "Hello2", true);
+    print_stream_cr(1, "Hello3", true);
+    print_stream_cr(1, "Hello4", true);
+    print_stream_cr(1, "Hello5", true);
+    print_stream_cr(1, "Hello6", true);
+    print_stream_cr(1, "Hello7", true);
     print_stream_cr(1, "Hello8", true);
-    print_stream_cr(1, "Iello9", true);
-    print_stream_cr(1, "Jello1", true);
+    print_stream_cr(1, "Hello9", true);
+    sleep(2);
+    paper(1,3);
+    print_stream_cr(1, "----5----X123456789", false);
     sleep(1);
-    print_stream_cr(1, "Kello2", true);
+    paper(1,5);
+    print_stream_cr(1, "xyyyyyzzzzzyyyyyzzzz", true);
+    // print_stream_cr(1, "xyyyyyzzzzzyyyyyzzzzzqqqqq", true);
     sleep(1);
-    print_stream_cr(1, "Lello3", true);
     sleep(10);
     end_window();
 }

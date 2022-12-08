@@ -257,6 +257,7 @@ void new_window(int stream, int left, int right, int top, int bottom)
     window[stream].col = right - left + 1;
     window[stream].top = top - 1;
     window[stream].line = bottom - top + 1;
+    locate_stream(stream, 1, 1);
 }
 
 void init_window()
@@ -403,7 +404,11 @@ void print_stream_cr(int stream, char *buf, bool cr)
            write_paper(curpaper);
        }
 
-       int len = strlen(buf);
+       if (window[stream].x != curx || window[stream].y != cury)
+       {
+           locate_stream_internal(stream, window[stream].x + 1, window[stream].y + 1);
+           // curx = window[stream].x ;
+       }
 
        /* update colours */
        setcolour(get_colour_cur_pos(stream), (sqr_colour_t){curpen, curpaper}, len);
@@ -429,7 +434,6 @@ void print_stream_cr(int stream, char *buf, bool cr)
            curx += len; 
            window[stream].x += len; 
        }
-       
    }
 }
 
@@ -503,101 +507,60 @@ int main()
     print_stream_cr(0, "C", true);
     print_stream_cr(0, "D", true);
     new_window(1, 3, 22, 3, 12);
-    pen(1, 1);
-    paper(1, 2);
+    pen(1, 2);
+    paper(1, 3);
     cls(1);
-    paper(1,6);
-    print_stream_cr(1, "Hello0", true);
     print_stream_cr(1, "Hello1", true);
     print_stream_cr(1, "Hello2", true);
     print_stream_cr(1, "Hello3", true);
     print_stream_cr(1, "Hello4", true);
     print_stream_cr(1, "Hello5", true);
+    paper(1,4);
     print_stream_cr(1, "Hello6", true);
     print_stream_cr(1, "Hello7", true);
     print_stream_cr(1, "Hello8", true);
     print_stream_cr(1, "Hello9", true);
+    print_stream_cr(1, "Hello0", true);
+    pen(2, 3);
+    paper(2, 5);
+    new_window(2, 8, 27, 8, 17);
     sleep(2);
-    paper(1,3);
-    print_stream_cr(1, "----5----X123456789", false);
+    cls(2);
+    print_stream_cr(2, "Hello1", true);
+    print_stream_cr(2, "Hello2", true);
+    print_stream_cr(2, "Hello3", true);
+    print_stream_cr(2, "Hello4", true);
+    print_stream_cr(2, "Hello5", true);
+    paper(2,7);
+    print_stream_cr(2, "Hello6", true);
+    print_stream_cr(2, "Hello7", true);
+    print_stream_cr(2, "Hello8", true);
+    sleep(4);
+    print_stream_cr(1, "HelloA", true);
     sleep(1);
-    paper(1,5);
-    print_stream_cr(1, "xyyyyyzzzzzyyyyyzzzz", true);
-    // print_stream_cr(1, "xyyyyyzzzzzyyyyyzzzzzqqqqq", true);
+    print_stream_cr(1, "HelloB", true);
     sleep(1);
+    print_stream_cr(1, "HelloC", true);
+    sleep(1);
+    print_stream_cr(1, "HelloD", true);
+    sleep(1);
+    print_stream_cr(1, "HelloE", true);
+    sleep(1);
+    print_stream_cr(1, "HelloF", true);
+    sleep(1);
+    print_stream_cr(1, "Hello0", true);
+    sleep(1);
+    print_stream_cr(1, "Hello0", true);
+    sleep(1);
+    print_stream_cr(2, "HelloD", true);
+    sleep(1);
+    print_stream_cr(2, "HelloE", true);
+    sleep(1);
+    print_stream_cr(2, "HelloF", true);
+    sleep(1);
+    print_stream_cr(2, "Hello0", true);
+    sleep(1);
+    print_stream_cr(2, "Hello0", true);
     sleep(10);
-    end_window();
-}
-
-int test2()
-{
-    char buffer[MAX_SEQBUF];
-    init_window();
-
-    new_window(1, 5, 90, 5, 40);
-    locate_stream(1,1,1);
-    for (int y = 0; y<16; y++) 
-    {
-        locate_stream(1, 1, y);
-        for (int x=0; x<16; x++)
-        {
-           pen(1, x);
-           paper(1, y);
-           int p = x + y * 16;
-           int len = sprintf(buffer, "%4d", p, MAX_SEQBUF);
-           print_stream(1, buffer);
-        }
-    }
-
-    sleep(20);
-    end_window();
-
-}
-int test1()
-{
-    char buffer[MAX_SEQBUF];
-    init_window();
-    init_colour(0, 0, 0, 0);
-    // init_colour(12, 255, 255, 255);
-    locate(1,1);
-    pen(0, 12);
-    print("Hello");
-    sleep(2);
-    init_colour(12, 255, 255, 0);
-    locate(2,2);
-    print("Hello");
-    sleep(2);
-    init_colour(12, 0, 255, 255);
-    sleep(2);
-    pen(0, 3);
-    print("pen 3");
-    init_colour(3, 0, 255, 255);
-    sleep(2);
-    init_colour(12, 127, 255, 127);
-    sleep(2);
-    locate(2,4);
-    print("Hello");
-    locate(5,10);
-    pen(0, 1);
-    print("Hello There");
-    locate(5,20);
-    pen(0, 2);
-    print("Hello over here");
-    new_window(1, 10, 26, 10, 26);
-    locate_stream(1,1,1);
-    for (int y = 0; y<16; y++) 
-    {
-        locate_stream(1, 1, y);
-        for (int x=0; x<16; x++)
-        {
-           int p = x + y * 16;
-           pen(1, p);
-           paper(1, 255 - p);
-           int len = sprintf(buffer, "%4d", p, MAX_SEQBUF);
-           print_stream(1, buffer);
-        }
-    }
-
-    sleep(40);
     end_window();
 }

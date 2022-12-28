@@ -3,9 +3,9 @@
 #include <unistd.h>
 #include <time.h>
 #include <pthread.h>
+#include <string.h>
 
-static const struct timespec p50 = {0, 2e6}; // fiftith of a second
-// static const struct timespec p50 = {0, 2e7}; // fiftith of a second
+static const struct timespec p50 = {0, 2e7}; // fiftith of a second
 static struct termios save_settings, raw_settings;
 
 typedef struct
@@ -68,26 +68,44 @@ int line_input(char *inbuf)
     return num;
 }
 
+static pthread_mutex_t key_mutex;
 static int key_status[80] = { -1 };
 
 // key + shift = 32 , + control = 128 , + both = 160
     // TO DO deal with utf-8 char and escape
 int inkey(int key) // inkey()
 {
-    //nanosleep(&p50, NULL);
-    char c[5] = {0};
-    for (int i = 0; i < 10; i++)
-    {
-        int num = read(STDIN_FILENO, &c, 5);
-        if (num == 1) 
-        {
-            key_code_t kc = amst_key_mapping[c[0]];
-            key_status[kc.key] = kc.code;
-        }
-    }
+    pthread_mutex_lock(&key_mutex);
     int r = key_status[key];
     key_status[key] = -1;
+    pthread_mutex_unlock(&key_mutex);
+
     return r;
+}
+
+static void *read_keys()
+{
+    while(1)
+    {
+        pthread_mutex_lock(&key_mutex);
+        for (int i=0; i<80; i++)
+            key_status[i] = -1;
+        // :wqmemset(key_status, -1, 80);
+        char c[5] = {0};
+        int num = 0;
+        do
+        {
+            num = read(STDIN_FILENO, &c, 5);
+            if (num == 1) 
+            {
+                key_code_t kc = amst_key_mapping[c[0]];
+                key_status[kc.key] = kc.code;
+            }
+        }
+        while (num > 0);
+        pthread_mutex_unlock(&key_mutex);
+        nanosleep(&p50, NULL);
+    }
 }
 
 // 69 = a  return 0 , A also 69 but return 32
@@ -110,6 +128,14 @@ void init_amstkey()
 
     if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw_settings) == -1)
         printf("tcsetattr failed\n");
+
+    pthread_t tid;
+    int err = pthread_create(&tid, NULL, &read_keys, NULL);
+    if (err != 0)
+        printf("Could not create thread %d\n", err);
+
+    if ((err = pthread_mutex_init(&key_mutex, NULL)))
+        printf("Could not create mutex %d\n", err);
 }
 
 
@@ -144,8 +170,8 @@ void main()
       }
       // printf("Loop%d\n", loop);
     }
-       int rc = inkey(58);
-            printf("Key %d, %d\n", 58, rc);
+    int rc = inkey(58);
+          printf("Key %d, %d\n", 58, rc);
 
     restore_canon();
 }

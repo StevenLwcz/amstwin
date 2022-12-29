@@ -5,10 +5,10 @@
 #include <pthread.h>
 #include <string.h>
 
+int utf8len(const char *buf);
+
 static const struct timespec p50 = {0, 2e7}; // fiftith of a second
 static struct termios save_settings, raw_settings;
-
-
 
 typedef struct
 { char key; 
@@ -30,9 +30,9 @@ static const key_code_t amst_key_mapping[255] = {
 };
 
 #define MAX_KEYS 10
-char key_buffer[MAX_KEYS];
-int key_index = 0;
-int key_length = 0;
+static char key_buffer[MAX_KEYS];
+static char *key_index;
+static char *key_length;
 
 // inkey() takes a key number and returns -1 not pressed
 // , 0 pressed, 32 with shift, 128 with control, 
@@ -54,12 +54,16 @@ void restore_raw()
 }
 static pthread_mutex_t key_mutex;
 
-char inkeys() // inkey$
+char inkeys(char *c) // inkey$
 {
-    char c[5] = {0};
     pthread_mutex_lock(&key_mutex);
     if (key_index < key_length)
-        c[0] = key_buffer[key_index++];
+    {
+        int len = utf8len(key_index);
+        memcpy(c, key_index, len);
+        key_index+=len;
+        c[len] = 0;
+    }
     else
         c[0] = 0;
   
@@ -101,26 +105,10 @@ static void *read_keys()
         pthread_mutex_lock(&key_mutex);
         for (int i=0; i<80; i++)
             key_status[i] = -1;
-        key_length = 0;
-        key_index = 0;
-        char c[MAX_KEYS] = {0};
-        int num = 0;
-        do
-        {
-            num = read(STDIN_FILENO, &c, MAX_KEYS);
-            for (int j = 0; j < num; j++)
-            {
-                if (c[j] < 128)
-                {
-                    key_code_t kc = amst_key_mapping[c[j]];
-                    key_status[kc.key] = kc.code;
-                    // printf("KEY %c\n", c[j]);
-                    key_buffer[key_length++] = c[j];
-                }
-                // else utf-8 or escape
-            }
-        }
-        while (num > 0);
+        key_index = key_buffer;
+        int num = read(STDIN_FILENO, key_index, MAX_KEYS);
+        key_length = key_index + num;
+        // to do decode escape sequence
         pthread_mutex_unlock(&key_mutex);
         nanosleep(&p50, NULL);
     }
@@ -166,13 +154,16 @@ void main()
     inbuf[num] = 0;
     printf("%s", inbuf);
     
-    char c;
-    while( (c = inkeys()) != 'a')
+    char c[5];
+    c[0] = 0xc2;
+    int len = utf8len(c);
+    printf("len x %d\n", len);
+    while( (c[0] = inkeys(c)) != 'a')
     {
-        if (c > 0)
+        if (c[0] > 0)
         {
-        fprintf(stdout, "> %c %d\n", c, c);
-        fflush(stdout);
+          fprintf(stdout, "> %s\n", c);
+          fflush(stdout);
         }
     }
 /*

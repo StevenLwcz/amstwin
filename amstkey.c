@@ -105,10 +105,22 @@ static void *read_keys()
         pthread_mutex_lock(&key_mutex);
         for (int i=0; i<80; i++)
             key_status[i] = -1;
+
         key_index = key_buffer;
         int num = read(STDIN_FILENO, key_index, MAX_KEYS);
         key_length = key_index + num;
         // to do decode escape sequence
+        for (int j = 0; j < num; j++)
+        {
+            int len = utf8len(key_index);
+            if (*key_index < 128)
+            {
+                key_code_t kc = amst_key_mapping[*key_index];
+                key_status[kc.key] = kc.code;
+                key_index += len;
+            }
+        }
+        key_index = key_buffer;
         pthread_mutex_unlock(&key_mutex);
         nanosleep(&p50, NULL);
     }
@@ -155,18 +167,16 @@ void main()
     printf("%s", inbuf);
     
     char c[5];
-    c[0] = 0xc2;
-    int len = utf8len(c);
-    printf("len x %d\n", len);
-    while( (c[0] = inkeys(c)) != 'a')
+    char k;
+    while((k = inkeys(c)) != 'a')
     {
-        if (c[0] > 0)
+        if (k > 0)
         {
           fprintf(stdout, "> %s\n", c);
           fflush(stdout);
         }
     }
-/*
+
     int loop=1;
     while (loop++)
     {
@@ -182,7 +192,6 @@ void main()
     }
     int rc = inkey(58);
           printf("Key %d, %d\n", 58, rc);
-  */
 
     restore_canon();
 }

@@ -8,6 +8,8 @@
 static const struct timespec p50 = {0, 2e7}; // fiftith of a second
 static struct termios save_settings, raw_settings;
 
+
+
 typedef struct
 { char key; 
   char code; 
@@ -27,6 +29,11 @@ static const key_code_t amst_key_mapping[255] = {
 //57 = £ and 66 = ¬
 };
 
+#define MAX_KEYS 10
+char key_buffer[MAX_KEYS];
+int key_index = 0;
+int key_length = 0;
+
 // inkey() takes a key number and returns -1 not pressed
 // , 0 pressed, 32 with shift, 128 with control, 
 // 160 with shift and control - not sure how to so this on UNIX
@@ -45,15 +52,21 @@ void restore_raw()
    if (tcsetattr(STDIN_FILENO, TCSANOW, &raw_settings) == -1)
         printf("tcsetattr failed\n");
 }
+static pthread_mutex_t key_mutex;
 
 char inkeys() // inkey$
 {
     char c[5] = {0};
-    read(STDIN_FILENO, &c, 5);
-    nanosleep(&p50, NULL);
+    pthread_mutex_lock(&key_mutex);
+    if (key_index < key_length)
+        c[0] = key_buffer[key_index++];
+    else
+        c[0] = 0;
+  
     // if no key pressed empty string returned - probably do at assember wrapper level
     // by setting len to zero
     // to do tranlate escape squences to something senible
+    pthread_mutex_unlock(&key_mutex);
     return c[0];
 }
 
@@ -68,7 +81,6 @@ int line_input(char *inbuf)
     return num;
 }
 
-static pthread_mutex_t key_mutex;
 static int key_status[80] = { -1 };
 
 // key + shift = 32 , + control = 128 , + both = 160
@@ -79,7 +91,6 @@ int inkey(int key) // inkey()
     int r = key_status[key];
     key_status[key] = -1;
     pthread_mutex_unlock(&key_mutex);
-
     return r;
 }
 
@@ -90,16 +101,23 @@ static void *read_keys()
         pthread_mutex_lock(&key_mutex);
         for (int i=0; i<80; i++)
             key_status[i] = -1;
-        // :wqmemset(key_status, -1, 80);
-        char c[5] = {0};
+        key_length = 0;
+        key_index = 0;
+        char c[MAX_KEYS] = {0};
         int num = 0;
         do
         {
-            num = read(STDIN_FILENO, &c, 5);
-            if (num == 1) 
+            num = read(STDIN_FILENO, &c, MAX_KEYS);
+            for (int j = 0; j < num; j++)
             {
-                key_code_t kc = amst_key_mapping[c[0]];
-                key_status[kc.key] = kc.code;
+                if (c[j] < 128)
+                {
+                    key_code_t kc = amst_key_mapping[c[j]];
+                    key_status[kc.key] = kc.code;
+                    // printf("KEY %c\n", c[j]);
+                    key_buffer[key_length++] = c[j];
+                }
+                // else utf-8 or escape
             }
         }
         while (num > 0);
@@ -130,7 +148,8 @@ void init_amstkey()
         printf("tcsetattr failed\n");
 
     pthread_t tid;
-    int err = pthread_create(&tid, NULL, &read_keys, NULL);
+    int err;
+    err = pthread_create(&tid, NULL, &read_keys, NULL);
     if (err != 0)
         printf("Could not create thread %d\n", err);
 
@@ -148,30 +167,31 @@ void main()
     printf("%s", inbuf);
     
     char c;
-    // while( (c = inkeys()) != 'a')
-    // {
-        // fprintf(stdout, "> %c\n", c);
-        // fflush(stdout);
-    // }
+    while( (c = inkeys()) != 'a')
+    {
+        if (c > 0)
+        {
+        fprintf(stdout, "> %c %d\n", c, c);
+        fflush(stdout);
+        }
+    }
+/*
     int loop=1;
     while (loop++)
     {
       for (int i = 0; i<81; i++)
       {
-        int rc = inkey(50);
+        int rc = inkey(i);
         if (rc != -1)
-            printf("Key %d, %d\n", 50, rc);
-        rc = inkey(51);
-        if (rc != -1)
-            printf("Key %d, %d\n", 51, rc);
-       rc = inkey(67);
-       if (rc == 128)
-          loop=-1;
+            printf("Key %d, %d\n", i, rc);
+        rc = inkey(67);
+        if (rc == 128)
+           loop=-1;
       }
-      // printf("Loop%d\n", loop);
     }
     int rc = inkey(58);
           printf("Key %d, %d\n", 58, rc);
+  */
 
     restore_canon();
 }

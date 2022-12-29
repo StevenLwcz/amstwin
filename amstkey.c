@@ -24,8 +24,9 @@ static const key_code_t amst_key_mapping[255] = {
                  ['!'] = {64, 128}, ['"'] = {65, 128},              ['$'] = {56, 128}, ['%'] = {49, 128}, ['^'] = {48, 128}, ['&'] = {41, 128}, ['*'] = {40, 128}, ['('] = {33, 128}, [')'] = {32, 128}, ['_'] = {25, 128}, ['+'] = {24, 128}, 
 ['Q'] = {67, 128}, ['W'] = {59, 128}, ['E'] = {58, 128}, ['R'] = {50, 128}, ['T'] = {51, 128}, ['Y'] = {43, 128}, ['U'] = {42, 128}, ['I'] = {35, 128}, ['O'] = {34, 128}, ['P'] = {27, 128}, ['{'] = {26, 128}, ['}'] = {17, 128}, 
 ['A'] = {69, 128}, ['S'] = {60, 128}, ['D'] = {61, 128}, ['F'] = {53, 128}, ['G'] = {52, 128}, ['H'] = {44, 128}, ['J'] = {45, 128}, ['K'] = {37, 128}, ['L'] = {36, 128}, [':'] = {29, 128}, ['@'] = {28, 128}, ['~'] = {19, 128}, 
-['|'] = {71, 128}, ['Z'] = {63, 128}, ['X'] = {62, 128}, ['C'] = {55, 128}, ['V'] = {54, 128}, ['B'] = {46, 128}, ['N'] = {38, 128}, ['M'] = {39, 128}, ['<'] = {31, 128}, ['>'] = {30, 128}, ['?'] = {22, 128} 
+['|'] = {71, 128}, ['Z'] = {63, 128}, ['X'] = {62, 128}, ['C'] = {55, 128}, ['V'] = {54, 128}, ['B'] = {46, 128}, ['N'] = {38, 128}, ['M'] = {39, 128}, ['<'] = {31, 128}, ['>'] = {30, 128}, ['?'] = {22, 128},
 
+[' '] = {27, 0} // space key
 //57 = £ and 66 = ¬
 };
 
@@ -88,7 +89,7 @@ int line_input(char *inbuf)
 static int key_status[80] = { -1 };
 
 // key + shift = 32 , + control = 128 , + both = 160
-    // TO DO deal with utf-8 char and escape
+    // TO DO deal eith escape
 int inkey(int key) // inkey()
 {
     pthread_mutex_lock(&key_mutex);
@@ -109,11 +110,46 @@ static void *read_keys()
         key_index = key_buffer;
         int num = read(STDIN_FILENO, key_index, MAX_KEYS);
         key_length = key_index + num;
-        // to do decode escape sequence
         for (int j = 0; j < num; j++)
         {
             int len = utf8len(key_index);
-            if (*key_index < 128)
+            if (*key_index == 0x1b)
+            {
+// blunt approach
+                *key_index++ = 0xe2;
+
+                if (*key_index == 0x5b)
+                {
+                    *key_index++ = 0x86;
+
+                    if (*key_index >= 0x41 && *key_index <= 0x44)
+                    {
+                        if (*key_index == 0x41) 
+                        {
+                            key_status[0] = 0;
+                            *key_index = 0x91;
+                        }
+                        else if (*key_index == 0x42)
+                        {
+                            key_status[2] = 0;
+                            *key_index = 0x93;
+                        }
+                        else if (*key_index == 0x44)
+                        {
+                            key_status[8] = 0;
+                            *key_index = 0x90;
+                        }
+                        else if (*key_index == 0x43)
+                        {
+                            key_status[1] = 0;
+                            *key_index = 0x92;
+                        }
+                        key_index++;
+                    }
+
+                }
+            }
+            else if (*key_index < 128)
             {
                 key_code_t kc = amst_key_mapping[*key_index];
                 key_status[kc.key] = kc.code;

@@ -48,6 +48,14 @@ def sub4(matchobj):
     count += 1
     return r
 
+def sub5(matchobj):
+    global count
+    m = matchobj.group()
+    if m >= "a" and m <= "z":
+        r = "['" + m + "'] = {" + str(list2[count]) + ", " + str(code) + "}, "
+        count += 1
+    return r
+
 code = 0;
 print(re.sub('.', sub1, key1))
 count=0
@@ -65,3 +73,12 @@ count=0
 print(re.sub('.', sub3, key7))
 count=0
 print(re.sub('.', sub4, key8))
+
+count=0
+print(re.sub('.', sub5, key2))
+count=0
+print(re.sub('.', sub6, key3))
+count=0
+print(re.sub('.', sub7, key4))
+
+

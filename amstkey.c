@@ -48,7 +48,7 @@ void restore_canon()
 }
 
 // restore raw mode 
-void restore_raw()
+static void restore_raw()
 {
    if (tcsetattr(STDIN_FILENO, TCSANOW, &raw_settings) == -1)
         printf("tcsetattr failed\n");
@@ -146,7 +146,6 @@ static void *read_keys()
                         }
                         key_index++;
                     }
-
                 }
             }
             else if (*key_index < 128)
@@ -193,42 +192,4 @@ void init_amstkey()
         printf("Could not create mutex %d\n", err);
 }
 
-
-void main()
-{
-    init_amstkey();
-    char inbuf[255];
-    int num = line_input(inbuf);
-    inbuf[num] = 0;
-    printf("%s", inbuf);
-    
-    char c[5];
-    char k;
-    while((k = inkeys(c)) != 'a')
-    {
-        if (k > 0)
-        {
-          fprintf(stdout, "> %s\n", c);
-          fflush(stdout);
-        }
-    }
-
-    int loop=1;
-    while (loop++)
-    {
-      for (int i = 0; i<81; i++)
-      {
-        int rc = inkey(i);
-        if (rc != -1)
-            printf("Key %d, %d\n", i, rc);
-        rc = inkey(67);
-        if (rc == 128)
-           loop=-1;
-      }
-    }
-    int rc = inkey(58);
-          printf("Key %d, %d\n", 58, rc);
-
-    restore_canon();
-}
 

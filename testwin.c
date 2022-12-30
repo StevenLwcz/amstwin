@@ -1,0 +1,85 @@
+#include <unistd.h>
+#include <stdbool.h>
+#include "amstwin.h"
+
+int main()
+{
+    init_window();
+    locate(1,1);
+    print("1234567890");
+    locate(1,2);
+    print("2");
+    locate(1,3);
+    print("3 ");
+    locate(1,4);
+    print("4 ");
+    locate(1,5);
+    print("5 ");
+    locate(1,6);
+    print("6 ");
+    locate(1,7);
+    print_stream_cr(0, "7", true);
+    print_stream_cr(0, "8", true);
+    print_stream_cr(0, "9", true);
+    print_stream_cr(0, "A", true);
+    print_stream_cr(0, "B", true);
+    print_stream_cr(0, "C", true);
+    print_stream_cr(0, "D", true);
+    new_window(1, 3, 22, 3, 12);
+    pen(1, 2);
+    paper(1, 3);
+    cls(1);
+    print_stream_cr(1, "Hello1", true);
+    print_stream_cr(1, "Hello2", true);
+    print_stream_cr(1, "Hello3", true);
+    print_stream_cr(1, "Hello4", true);
+    print_stream_cr(1, "Hello5", true);
+    paper(1,4);
+    print_stream_cr(1, "Hello6", true);
+    print_stream_cr(1, "Hello7", true);
+    print_stream_cr(1, "Hello8", true);
+    print_stream_cr(1, "Hello9", true);
+    print_stream_cr(1, "Hello0", true);
+    pen(2, 3);
+    paper(2, 5);
+    new_window(2, 8, 27, 8, 17);
+    sleep(2);
+    cls(2);
+    print_stream_cr(2, "Hello1", true);
+    print_stream_cr(2, "Hello2", true);
+    print_stream_cr(2, "Hello3", true);
+    print_stream_cr(2, "Hello4", true);
+    print_stream_cr(2, "Hello5", true);
+    paper(2,7);
+    print_stream_cr(2, "Hello6", true);
+    print_stream_cr(2, "Hello7", true);
+    print_stream_cr(2, "Hello8", true);
+    sleep(4);
+    print_stream_cr(1, "HelloA", true);
+    sleep(1);
+    print_stream_cr(1, "HelloB", true);
+    sleep(1);
+    print_stream_cr(1, "HelloC", true);
+    sleep(1);
+    print_stream_cr(1, "HelloD", true);
+    sleep(1);
+    print_stream_cr(1, "HelloE", true);
+    sleep(1);
+    print_stream_cr(1, "HelloF", true);
+    sleep(1);
+    print_stream_cr(1, "Hello0", true);
+    sleep(1);
+    print_stream_cr(1, "Hello0", true);
+    sleep(1);
+    print_stream_cr(2, "HelloD", true);
+    sleep(1);
+    print_stream_cr(2, "HelloE", true);
+    sleep(1);
+    print_stream_cr(2, "HelloF", true);
+    sleep(1);
+    print_stream_cr(2, "Hello0", true);
+    sleep(1);
+    print_stream_cr(2, "Hello0", true);
+    sleep(10);
+    end_window();
+}

@@ -6,17 +6,17 @@ int main()
 {
     init_window();
     locate(1,1);
-    print("1234567890");
+    print_0("1234567890");
     locate(1,2);
-    print("2");
+    print_0("2");
     locate(1,3);
-    print("3 ");
+    print_0("3 ");
     locate(1,4);
-    print("4 ");
+    print_0("4 ");
     locate(1,5);
-    print("5 ");
+    print_0("5 ");
     locate(1,6);
-    print("6 ");
+    print_0("6 ");
     locate(1,7);
     print_stream_cr(0, "7", true);
     print_stream_cr(0, "8", true);

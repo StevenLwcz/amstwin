@@ -442,7 +442,7 @@ void print_stream(int stream, char *buf)
     print_stream_cr(stream, buf, false);
 }
 
-void print(char *buf)
+void print_0(char *buf)
 {
     print_stream(0, buf);
 }

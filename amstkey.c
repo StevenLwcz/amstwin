@@ -4,6 +4,7 @@
 #include <time.h>
 #include <pthread.h>
 #include <string.h>
+#include "amstkey.h"
 
 int utf8len(const char *buf);
 
@@ -55,24 +56,20 @@ static void restore_raw()
 }
 static pthread_mutex_t key_mutex;
 
-char inkeys(char *c) // inkey$
+void inkeys(amst_string_t *s) // inkey$
 {
     pthread_mutex_lock(&key_mutex);
     if (key_index < key_length)
     {
         int len = utf8len(key_index);
-        memcpy(c, key_index, len);
+        memcpy(s->buf, key_index, len);
         key_index+=len;
-        c[len] = 0;
+        s->len = len;
     }
     else
-        c[0] = 0;
+        s->len = 0;
   
-    // if no key pressed empty string returned - probably do at assember wrapper level
-    // by setting len to zero
-    // to do tranlate escape squences to something senible
     pthread_mutex_unlock(&key_mutex);
-    return c[0];
 }
 
 // need flag to suppress prompt and or new line character

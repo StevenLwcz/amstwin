@@ -10,10 +10,10 @@ amstwin: amstwin.c
 amstkey: amstkey.c utf8len.o
 	gcc -g -c -o amstkey.o amstkey.c
 
-testwin: testwin.c amstwin.o
+testwin: testwin.c amstwin.c
 	gcc -g -o testwin testwin.c amstwin.o
 
-testkey: testkey.c amstkey.o
+testkey: testkey.c amstkey.c
 	gcc -g -o testkey testkey.c amstkey.o utf8len.o -lpthread
 
 clean:

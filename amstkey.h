@@ -1,6 +1,12 @@
+typedef struct
+{
+    int len;
+    char *buf;
+} amst_string_t;
+
 void init_amstkey();
 int line_input(char *inbuf);
-char inkeys(char *c); // inkey$
+void inkeys(amst_string_t *str); // inkey$
 int inkey(int key); // inkey()
 void restore_canon();
 

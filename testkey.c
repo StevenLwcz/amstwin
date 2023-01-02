@@ -10,15 +10,19 @@ void main()
     printf("%s", inbuf);
     
     char c[5];
-    char k;
-    while((k = inkeys(c)) != 'a')
+    amst_string_t s;
+    s.buf = c;
+    do
     {
-        if (k > 0)
+        inkeys(&s);
+        if (s.len > 0)
         {
-          fprintf(stdout, "> %s\n", c);
+          s.buf[s.len] = 0;
+          fprintf(stdout, "> %s\n", s.buf);
           fflush(stdout);
         }
     }
+    while (s.buf[0] != 'a');
 
     int loop=1;
     while (loop++)

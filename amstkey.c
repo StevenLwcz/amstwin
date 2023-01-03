@@ -1,14 +1,16 @@
 #include <stdio.h>
-#include <termios.h>
+#include <stdlib.h>
 #include <unistd.h>
-#include <time.h>
-#include <pthread.h>
+#include <termios.h>
 #include <string.h>
+#include <time.h>
+#include <errno.h>
+#include <pthread.h>
+#include <signal.h>
 #include "amstkey.h"
 
 int utf8len(const char *buf);
 
-static const struct timespec p50 = {0, 2e7}; // fiftith of a second
 static struct termios save_settings, raw_settings;
 
 typedef struct
@@ -98,6 +100,7 @@ int inkey(int key) // inkey()
 
 static void *read_keys()
 {
+    const struct timespec p50 = {0, 2e7}; // fiftith of a second
     while(1)
     {
         pthread_mutex_lock(&key_mutex);
@@ -158,18 +161,26 @@ static void *read_keys()
     }
 }
 
+void end_amstkey(int sig)
+{
+    restore_canon();
+    exit(0);
+}
+
 // 69 = a  return 0 , A also 69 but return 32
 // char to kwynum  a -> 69  A->69 
 // a->0 A -> 32 1 -> 128
 
 void init_amstkey()
 {
+    signal(SIGINT, end_amstkey);
     if (tcgetattr(STDIN_FILENO, &save_settings) == -1)
         printf("tcgetattr failed\\n"); // todo better error termination
 
     raw_settings = save_settings;
     // raw mode
-    raw_settings.c_lflag &= ~(ICANON | ECHO | ISIG | IEXTEN);
+    // raw_settings.c_lflag &= ~(ICANON | ECHO | ISIG | IEXTEN);
+    raw_settings.c_lflag &= ~(ICANON | ECHO | IEXTEN);
     raw_settings.c_iflag &= ~(BRKINT | ICRNL | IGNBRK | IGNCR | INLCR |
                              INPCK | ISTRIP | IXON | PARMRK);
     // non block read
@@ -178,6 +189,9 @@ void init_amstkey()
 
     if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw_settings) == -1)
         printf("tcsetattr failed\n");
+
+    for (int i=0; i<80; i++)
+        key_status[i] = -1;
 
     pthread_t tid;
     int err;
